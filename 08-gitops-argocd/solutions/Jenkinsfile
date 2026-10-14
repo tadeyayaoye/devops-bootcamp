@@ -1,0 +1,230 @@
+// =============================================================================
+// Pipeline CI/CD de taskapi — version MODULE 08 (version finale)
+//
+//  Préparation → Secrets (gitleaks) → Dockerfile (hadolint) → Lint & tests
+//  → SonarQube + Quality Gate → Build → Scan image (Trivy) + SBOM → Smoke test
+//  → Publication GHCR → Mise à jour du repo GitOps (dev)      [ces 2 derniers : main uniquement]
+// =============================================================================
+pipeline {
+    agent any
+
+    options {
+        timestamps()
+        ansiColor('xterm')
+        buildDiscarder(logRotator(numToKeepStr: '20'))
+        timeout(time: 40, unit: 'MINUTES')
+        disableConcurrentBuilds()
+    }
+
+    environment {
+        IMAGE_NAME       = 'ghcr.io/tadeyayaoye/taskapi'
+        // Outils de sécurité épinglés (cf. incident Trivy de mars 2026 : jamais de tag mobile)
+        TRIVY_IMAGE      = 'aquasec/trivy:0.69.3'
+        HADOLINT_IMAGE   = 'hadolint/hadolint:v2.12.0'
+        GITLEAKS_IMAGE   = 'ghcr.io/gitleaks/gitleaks:v8.24.0'
+    }
+
+    stages {
+        stage('Préparation') {
+            steps {
+                script {
+                    env.SHORT_SHA = sh(script: 'git rev-parse --short=7 HEAD', returnStdout: true).trim()
+                    env.IMAGE_TAG = env.SHORT_SHA
+                    currentBuild.displayName = "#${env.BUILD_NUMBER} · ${env.SHORT_SHA}"
+                    // SonarQube consomme ~3 Go : on l'analyse seulement s'il est démarré
+                    env.SONAR_UP = sh(script: 'curl -fs http://sonarqube:9000/api/system/status | grep -q \'"UP"\' && echo true || echo false',
+                                      returnStdout: true).trim()
+                    if (env.SONAR_UP != 'true') {
+                        unstable('SonarQube arrêté : analyse et quality gate ignorés (en entreprise : bloquant !)')
+                    }
+                }
+            }
+        }
+
+        stage('Contrôles statiques') {
+            parallel {
+                stage('Secrets (gitleaks)') {
+                    steps {
+                        sh '''
+                            docker run --rm -u "$(id -u):$(id -g)" -v "$WORKSPACE:/repo" ${GITLEAKS_IMAGE} \
+                              dir /repo --no-banner --redact --verbose
+                        '''
+                    }
+                }
+                stage('Dockerfile (hadolint)') {
+                    steps {
+                        sh 'docker run --rm -i ${HADOLINT_IMAGE} hadolint --failure-threshold error - < app/Dockerfile'
+                    }
+                }
+            }
+        }
+
+        stage('Lint & tests') {
+            agent {
+                docker {
+                    image 'python:3.12-slim'
+                    reuseNode true
+                }
+            }
+            environment {
+                HOME = "${env.WORKSPACE}"
+                PIP_CACHE_DIR = "${env.WORKSPACE}/.pip-cache"
+            }
+            steps {
+                dir('app') {
+                    sh '''
+                        python -m venv .venv
+                        . .venv/bin/activate
+                        pip install -q -r requirements-dev.txt
+                        ruff check .
+                        mkdir -p reports
+                        pytest --junitxml=reports/junit.xml --cov --cov-report=xml --cov-report=term
+                    '''
+                }
+            }
+            post {
+                always {
+                    junit 'app/reports/junit.xml'
+                    recordCoverage(tools: [[parser: 'COBERTURA', pattern: 'app/coverage.xml']],
+                                   sourceDirectories: [[path: 'app/src']])
+                }
+            }
+        }
+
+        stage('Analyse SonarQube') {
+            when { environment name: 'SONAR_UP', value: 'true' }
+            agent {
+                docker {
+                    image 'sonarsource/sonar-scanner-cli:latest'
+                    args '--network cicd --entrypoint='
+                    reuseNode true
+                }
+            }
+            environment {
+                HOME = "${env.WORKSPACE}"
+                SONAR_USER_HOME = "${env.WORKSPACE}/.sonar"
+            }
+            steps {
+                dir('app') {
+                    withSonarQubeEnv('sonarqube') {
+                        sh 'sonar-scanner -Dsonar.host.url="$SONAR_HOST_URL" -Dsonar.token="$SONAR_AUTH_TOKEN" -Dsonar.projectVersion="$SHORT_SHA"'
+                    }
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            when { environment name: 'SONAR_UP', value: 'true' }
+            steps {
+                // SonarQube rappelle Jenkins (webhook) quand l'analyse est traitée
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        stage('Build image') {
+            steps {
+                sh '''
+                    docker build --pull \
+                      --build-arg APP_VERSION=${SHORT_SHA} \
+                      --build-arg GIT_SHA=${GIT_COMMIT} \
+                      -t ${IMAGE_NAME}:${IMAGE_TAG} app/
+                '''
+            }
+        }
+
+        stage('Scan image (Trivy) + SBOM') {
+            steps {
+                sh '''
+                    TRIVY="docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v trivy-cache:/root/.cache ${TRIVY_IMAGE}"
+                    # Rapport complet (informatif)
+                    $TRIVY image --quiet --scanners vuln --severity HIGH,CRITICAL ${IMAGE_NAME}:${IMAGE_TAG}
+                    # Gate : on bloque sur les CRITICAL qui ont un correctif disponible
+                    $TRIVY image --quiet --scanners vuln --severity CRITICAL --ignore-unfixed --exit-code 1 ${IMAGE_NAME}:${IMAGE_TAG}
+                    # Inventaire des composants (SBOM CycloneDX) archivé avec le build
+                    $TRIVY image --quiet --format cyclonedx ${IMAGE_NAME}:${IMAGE_TAG} > sbom-taskapi-${IMAGE_TAG}.cdx.json
+                '''
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'sbom-*.json', allowEmptyArchive: true, fingerprint: true
+                }
+            }
+        }
+
+        stage('Smoke test') {
+            environment {
+                SMOKE = "smoke-${env.BUILD_NUMBER}-${env.SHORT_SHA}"
+            }
+            steps {
+                sh '''
+                    docker run -d --name ${SMOKE} --network cicd \
+                      -e DATABASE_URL=sqlite:////tmp/smoke.db ${IMAGE_NAME}:${IMAGE_TAG}
+                    for i in $(seq 1 30); do
+                      if curl -fsS http://${SMOKE}:8000/readyz; then echo; exit 0; fi
+                      sleep 1
+                    done
+                    docker logs ${SMOKE}; exit 1
+                '''
+            }
+            post {
+                always { sh 'docker rm -f ${SMOKE} || true' }
+            }
+        }
+
+        stage('Publication GHCR') {
+            when { branch 'main' }
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'github-token',
+                                                  usernameVariable: 'GH_USER', passwordVariable: 'GH_TOKEN')]) {
+                    sh '''
+                        echo "$GH_TOKEN" | docker login ghcr.io -u "$GH_USER" --password-stdin
+                        docker push ${IMAGE_NAME}:${IMAGE_TAG}
+                        docker tag  ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:main
+                        docker push ${IMAGE_NAME}:main
+                        docker image inspect --format '{{index .RepoDigests 0}}' ${IMAGE_NAME}:${IMAGE_TAG} | tee image-digest.txt
+                    '''
+                }
+            }
+            post {
+                always {
+                    sh 'docker logout ghcr.io || true'
+                    archiveArtifacts artifacts: 'image-digest.txt', allowEmptyArchive: true
+                }
+            }
+        }
+
+        // Livraison continue en dev : la CI ne touche PAS au cluster, elle modifie l'état désiré dans Git.
+        // Argo CD (dans le cluster) détecte le commit et déploie.
+        stage('Mise à jour GitOps (dev)') {
+            when { branch 'main' }
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'github-token',
+                                                  usernameVariable: 'GH_USER', passwordVariable: 'GH_TOKEN')]) {
+                    sh '''
+                        rm -rf gitops
+                        git clone --depth 1 https://github.com/tadeyayaoye/devops-bootcamp-gitops.git gitops
+                        cd gitops/envs/dev
+                        kustomize edit set image ${IMAGE_NAME}:${IMAGE_TAG}
+                        git config user.name  "jenkins-bot"
+                        git config user.email "jenkins-bot@users.noreply.github.com"
+                        if git diff --quiet; then echo "dev est déjà en ${IMAGE_TAG}"; exit 0; fi
+                        git commit -am "chore(dev): taskapi ${IMAGE_TAG} (Jenkins #${BUILD_NUMBER})"
+                        git push "https://${GH_USER}:${GH_TOKEN}@github.com/tadeyayaoye/devops-bootcamp-gitops.git" HEAD:main
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        success { echo "✅ ${env.IMAGE_NAME}:${env.IMAGE_TAG} validée" }
+        failure { echo '❌ Pipeline en échec : lis le premier stage rouge' }
+        cleanup {
+            cleanWs(deleteDirs: true, notFailBuild: true,
+                    patterns: [[pattern: '.pip-cache/**', type: 'EXCLUDE'],
+                               [pattern: '.sonar/**', type: 'EXCLUDE']])
+        }
+    }
+}

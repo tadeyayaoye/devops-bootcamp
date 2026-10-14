@@ -1,0 +1,24 @@
+# Application RACINE (pattern « app-of-apps ») : la SEULE ressource appliquée à la main.
+#   kubectl apply -f bootstrap/root.yaml
+# Elle synchronise le dossier argocd/, qui contient toutes les autres Applications.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: argocd
+  # Pas de finalizer ici : supprimer la racine ne doit pas supprimer en cascade tout le cluster
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/tadeyayaoye/devops-bootcamp-gitops.git
+    targetRevision: main
+    path: argocd
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

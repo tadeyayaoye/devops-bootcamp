@@ -1,0 +1,36 @@
+# AppProjects : des « garde-fous » pour les Applications (sources autorisées, destinations, types de ressources).
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: platform
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-10"     # créés avant les Applications qui les utilisent
+spec:
+  description: Briques de plateforme (secrets, observabilité…) — équipe plateforme
+  sourceRepos: ["*"]
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: "*"
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: apps
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-10"
+spec:
+  description: Applications métier — périmètre restreint
+  sourceRepos:
+    - https://github.com/tadeyayaoye/devops-bootcamp-gitops.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: "taskapi-*"
+  # Seule ressource « cluster » autorisée : le Namespace de l'environnement
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace

@@ -1,0 +1,46 @@
+# ApplicationSet : UNE définition → une Application par dossier envs/* (dev, prod, et demain staging…)
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: taskapi
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - git:
+        repoURL: https://github.com/tadeyayaoye/devops-bootcamp-gitops.git
+        revision: main
+        directories:
+          - path: envs/*
+  template:
+    metadata:
+      name: "taskapi-{{ .path.basename }}"
+      labels:
+        app.kubernetes.io/part-of: devops-bootcamp
+        environment: "{{ .path.basename }}"
+    spec:
+      project: apps
+      source:
+        repoURL: https://github.com/tadeyayaoye/devops-bootcamp-gitops.git
+        targetRevision: main
+        path: "{{ .path.path }}"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "taskapi-{{ .path.basename }}"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        retry:
+          limit: 5
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m
+      # Le nombre de réplicas est piloté par l'HPA : Argo CD ne doit pas le « corriger »
+      ignoreDifferences:
+        - group: apps
+          kind: Deployment
+          jsonPointers:
+            - /spec/replicas
