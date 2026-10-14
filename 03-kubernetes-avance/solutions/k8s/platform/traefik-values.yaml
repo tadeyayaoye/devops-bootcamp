@@ -1,0 +1,37 @@
+# Valeurs Helm de Traefik pour kind.
+#   helm upgrade --install traefik traefik/traefik -n traefik --create-namespace -f k8s/platform/traefik-values.yaml
+# Lis TOUJOURS les valeurs par défaut d'un chart :  helm show values traefik/traefik | less
+
+# Pas de LoadBalancer dans kind : NodePort fixe, publié sur le port 80 de l'hôte par kind (extraPortMappings)
+service:
+  type: NodePort
+ports:
+  web:
+    nodePort: 30080
+  websecure:
+    nodePort: 30443
+
+providers:
+  # Traefik devient un contrôleur Gateway API (CRD Gateway API installées par le chart)
+  kubernetesGateway:
+    enabled: true
+  kubernetesIngress:
+    enabled: true
+
+# On déclare nous-mêmes GatewayClass + Gateway (k8s/platform/gateway.yaml) pour comprendre ce qu'on fait
+gateway:
+  enabled: false
+gatewayClass:
+  enabled: false
+
+logs:
+  access:
+    enabled: true
+    format: json
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    memory: 256Mi

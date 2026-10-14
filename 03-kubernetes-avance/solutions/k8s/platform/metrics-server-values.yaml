@@ -1,0 +1,5 @@
+# metrics-server : fournit `kubectl top` et les métriques CPU/mémoire de l'HPA.
+#   helm upgrade --install metrics-server metrics-server/metrics-server -n kube-system -f k8s/platform/metrics-server-values.yaml
+# kind : les kubelets ont des certificats auto-signés → on désactive la vérification TLS (jamais en prod).
+args:
+  - --kubelet-insecure-tls

@@ -1,0 +1,13 @@
+# Valeurs pour installer le chart dans le namespace taskapi-helm, en réutilisant
+# la base Postgres du namespace taskapi (Lab 3.6).
+#   helm upgrade --install demo charts/taskapi -n taskapi-helm -f charts/values-lab.yaml
+image:
+  repository: taskapi
+  tag: dev
+config:
+  APP_ENV: helm-lab
+  DB_HOST: postgres.taskapi.svc.cluster.local
+autoscaling:
+  enabled: true
+httpRoute:
+  hostnames: [taskapi-helm.localhost]

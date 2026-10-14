@@ -1,0 +1,40 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: taskapi-dev
+
+resources:
+  - namespace.yaml
+  - ../../apps/postgres/base
+  - ../../apps/taskapi/base
+
+images:
+  - name: ghcr.io/tadeyayaoye/taskapi
+    newName: taskapi          # module 03 : image locale chargée dans kind (module 08 : GHCR)
+    newTag: dev
+
+configMapGenerator:
+  - name: taskapi-config
+    behavior: merge
+    literals:
+      - APP_ENV=dev
+      - LOG_LEVEL=DEBUG
+
+patches:
+  - target:
+      kind: HTTPRoute
+      name: taskapi
+    patch: |-
+      - op: replace
+        path: /spec/hostnames/0
+        value: taskapi-dev.localhost
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: taskapi
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 1
+      - op: replace
+        path: /spec/maxReplicas
+        value: 3

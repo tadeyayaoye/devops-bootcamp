@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: taskapi-config
+  namespace: taskapi
+  labels:
+    app.kubernetes.io/name: taskapi
+data:
+  APP_ENV: "kind"
+  LOG_LEVEL: "INFO"
+  DB_HOST: "postgres"
+  DB_PORT: "5432"
+  DB_NAME: "taskapi"
+  DB_USER: "taskapi"
+  CHAOS_ENABLED: "true"

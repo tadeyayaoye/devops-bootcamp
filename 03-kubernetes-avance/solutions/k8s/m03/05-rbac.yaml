@@ -1,0 +1,45 @@
+# Identité dédiée de l'application (aucun droit : elle n'appelle pas l'API)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: taskapi
+  namespace: taskapi
+automountServiceAccountToken: false
+---
+# Un compte « lecteur » pour un outil de supervision ou un développeur d'astreinte :
+# il peut tout LIRE dans le namespace sauf les Secrets, et ne peut rien modifier.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: lecteur
+  namespace: taskapi
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: lecteur
+  namespace: taskapi
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "services", "endpoints", "configmaps", "events", "persistentvolumeclaims"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: lecteur
+  namespace: taskapi
+subjects:
+  - kind: ServiceAccount
+    name: lecteur
+    namespace: taskapi
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: lecteur

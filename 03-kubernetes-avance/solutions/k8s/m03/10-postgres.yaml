@@ -1,0 +1,93 @@
+# Postgres en StatefulSet : identité stable (postgres-0) + un PVC qui survit aux recréations.
+# Conforme au profil Pod Security "restricted" (non-root, seccomp, aucune capability).
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: taskapi
+  labels:
+    app.kubernetes.io/name: postgres
+spec:
+  clusterIP: None             # headless : le DNS renvoie directement l'IP du pod (postgres-0.postgres…)
+  selector:
+    app.kubernetes.io/name: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: taskapi
+  labels:
+    app.kubernetes.io/name: postgres
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgres
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70           # utilisateur "postgres" de l'image alpine
+        runAsGroup: 70
+        fsGroup: 70
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: postgres
+          image: postgres:17-alpine
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: taskapi
+            - name: POSTGRES_USER
+              value: taskapi
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: taskapi-db
+                  key: password
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata   # sous-dossier : le point de montage lui-même n'est pas vide (lost+found…)
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "taskapi", "-d", "taskapi"]
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "taskapi"]
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            failureThreshold: 4
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi

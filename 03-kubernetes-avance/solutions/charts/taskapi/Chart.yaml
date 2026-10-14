@@ -1,0 +1,11 @@
+apiVersion: v2
+name: taskapi
+description: Application fil rouge du bootcamp DevOps (FastAPI + Postgres externe)
+type: application
+# Version du CHART (SemVer) : à incrémenter à chaque modification des templates
+version: 0.1.0
+# Version de l'APPLICATION par défaut (tag d'image si image.tag est vide)
+appVersion: "dev"
+keywords: [fastapi, bootcamp]
+maintainers:
+  - name: tadeyayaoye

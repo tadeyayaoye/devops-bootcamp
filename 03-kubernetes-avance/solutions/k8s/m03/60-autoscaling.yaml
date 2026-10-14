@@ -1,0 +1,34 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: taskapi
+  namespace: taskapi
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: taskapi
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60      # % de la REQUEST cpu (100m) → scale au-delà de ~60m par pod
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 120
+---
+# Pendant un drain de nœud (maintenance), on garde au moins 1 pod disponible
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: taskapi
+  namespace: taskapi
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: taskapi

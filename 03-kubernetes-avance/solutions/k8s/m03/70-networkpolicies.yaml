@@ -1,0 +1,53 @@
+# Modèle « zero trust » : tout est interdit en entrée, puis on ouvre flux par flux.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: taskapi
+spec:
+  podSelector: {}               # tous les pods du namespace
+  policyTypes: ["Ingress"]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: taskapi-from-gateway-and-monitoring
+  namespace: taskapi
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: taskapi
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik       # la Gateway
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring    # Prometheus (module 09)
+      ports:
+        - port: 8000
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres-from-app-and-backup
+  namespace: taskapi
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: taskapi
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: pg-backup
+      ports:
+        - port: 5432
+          protocol: TCP

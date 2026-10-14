@@ -1,0 +1,150 @@
+# ⚠ Lab 2.7 — 7 déploiements, 7 pannes différentes. Ne lis pas ce fichier pour trouver les bugs :
+# applique-le, puis diagnostique UNIQUEMENT avec kubectl (get, describe, logs, events, endpointslices).
+#   kubectl apply -f 02-kubernetes-bases/labs/broken.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: debug-lab
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: common
+  namespace: debug-lab
+data:
+  DATABASE_URL: "sqlite:////tmp/app.db"
+  APP_ENV: "debug-lab"
+---
+# 1 ───────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: case1, namespace: debug-lab }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: case1 } }
+  template:
+    metadata: { labels: { app: case1 } }
+    spec:
+      containers:
+        - name: app
+          image: taskapi:dev
+          envFrom: [{ configMapRef: { name: common } }]
+          ports: [{ name: http, containerPort: 8000 }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: case1, namespace: debug-lab }
+spec:
+  selector: { app: cas1 }
+  ports: [{ port: 80, targetPort: http }]
+---
+# 2 ───────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: case2, namespace: debug-lab }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: case2 } }
+  template:
+    metadata: { labels: { app: case2 } }
+    spec:
+      containers:
+        - name: app
+          image: taskapi:dve
+          envFrom: [{ configMapRef: { name: common } }]
+---
+# 3 ───────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: case3, namespace: debug-lab }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: case3 } }
+  template:
+    metadata: { labels: { app: case3 } }
+    spec:
+      containers:
+        - name: app
+          image: taskapi:dev
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                configMapKeyRef: { name: common, key: DB_URL }
+---
+# 4 ───────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: case4, namespace: debug-lab }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: case4 } }
+  template:
+    metadata: { labels: { app: case4 } }
+    spec:
+      containers:
+        - name: app
+          image: taskapi:dev
+          envFrom: [{ configMapRef: { name: common } }]
+          ports: [{ containerPort: 8000 }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: case4, namespace: debug-lab }
+spec:
+  selector: { app: case4 }
+  ports: [{ port: 80, targetPort: 8080 }]
+---
+# 5 ───────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: case5, namespace: debug-lab }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: case5 } }
+  template:
+    metadata: { labels: { app: case5 } }
+    spec:
+      containers:
+        - name: app
+          image: taskapi:dev
+          envFrom: [{ configMapRef: { name: common } }]
+          resources:
+            limits: { memory: 24Mi }
+---
+# 6 ───────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: case6, namespace: debug-lab }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: case6 } }
+  template:
+    metadata: { labels: { app: case6 } }
+    spec:
+      containers:
+        - name: app
+          image: taskapi:dev
+          envFrom: [{ configMapRef: { name: common } }]
+          resources:
+            requests: { cpu: "24", memory: 64Mi }
+---
+# 7 ───────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: case7, namespace: debug-lab }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: case7 } }
+  template:
+    metadata: { labels: { app: case7 } }
+    spec:
+      containers:
+        - name: app
+          image: taskapi:dev
+          envFrom: [{ configMapRef: { name: common } }]
+          ports: [{ name: http, containerPort: 8000 }]
+          livenessProbe:
+            httpGet: { path: /health, port: http }
+            initialDelaySeconds: 3
+            periodSeconds: 3
+            failureThreshold: 2

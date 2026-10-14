@@ -1,0 +1,17 @@
+taskapi {{ include "taskapi.image" . }} est déployé dans le namespace {{ .Release.Namespace }} (release {{ .Release.Name }}, révision {{ .Release.Revision }}).
+
+Suivre le déploiement :
+  kubectl -n {{ .Release.Namespace }} rollout status deploy/{{ include "taskapi.fullname" . }}
+
+{{- if .Values.httpRoute.enabled }}
+Accès :
+{{- range .Values.httpRoute.hostnames }}
+  http://{{ . }}
+{{- end }}
+{{- else }}
+Accès local :
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "taskapi.fullname" . }} 8000:{{ .Values.service.port }}
+{{- end }}
+
+Tester :
+  helm test {{ .Release.Name }} -n {{ .Release.Namespace }}

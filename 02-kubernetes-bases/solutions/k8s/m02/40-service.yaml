@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: taskapi
+  namespace: taskapi
+  labels:
+    app.kubernetes.io/name: taskapi
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: taskapi
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

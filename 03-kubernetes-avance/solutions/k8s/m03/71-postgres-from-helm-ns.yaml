@@ -1,0 +1,23 @@
+# Lab 3.6 : autorise les pods taskapi du namespace taskapi-helm à joindre Postgres.
+# namespaceSelector ET podSelector dans le MÊME élément "from" = les deux conditions (ET logique).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres-from-helm-namespace
+  namespace: taskapi
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: taskapi-helm
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: taskapi
+      ports:
+        - port: 5432
+          protocol: TCP

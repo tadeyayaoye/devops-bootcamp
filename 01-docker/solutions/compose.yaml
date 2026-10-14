@@ -1,0 +1,64 @@
+# taskapi + Postgres en local.
+#   mkdir -p secrets && openssl rand -hex 16 | tr -d '\n' > secrets/db_password.txt
+#   docker compose up -d --build && docker compose ps
+name: taskapi
+
+services:
+  db:
+    image: postgres:17-alpine       # 18 a changé le chemin des données : lire les release notes avant de monter
+    environment:
+      POSTGRES_DB: taskapi
+      POSTGRES_USER: taskapi
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password   # convention _FILE : le secret n'est pas une variable d'env
+    secrets: [db_password]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taskapi -d taskapi"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [backend]
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ./app
+      args:
+        APP_VERSION: compose
+    image: taskapi:dev
+    environment:
+      APP_ENV: compose
+      DB_HOST: db
+      CHAOS_ENABLED: "true"
+      # DB_PASSWORD est lu depuis /run/secrets/db_password par pydantic-settings
+    secrets: [db_password]
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8000:8000"
+    # Durcissement runtime
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
+    networks: [backend, frontend]
+    restart: unless-stopped
+
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt
+
+volumes:
+  pgdata:
+
+networks:
+  backend:
+    internal: true    # la base n'a aucun accès réseau extérieur
+  frontend: {}

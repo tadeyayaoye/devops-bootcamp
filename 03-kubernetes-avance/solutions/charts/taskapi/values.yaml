@@ -1,0 +1,81 @@
+# Valeurs par défaut du chart taskapi. Chaque clé est documentée : c'est le « contrat » du chart.
+
+image:
+  repository: taskapi
+  # Vide → .Chart.AppVersion
+  tag: ""
+  pullPolicy: IfNotPresent
+
+# Ignoré si autoscaling.enabled=true
+replicaCount: 2
+
+# Variables non sensibles (ConfigMap). Un changement redémarre les pods (annotation checksum).
+config:
+  APP_ENV: helm
+  LOG_LEVEL: INFO
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  DB_NAME: taskapi
+  DB_USER: taskapi
+  CHAOS_ENABLED: "true"
+
+# Secret EXISTANT contenant le mot de passe de la base (le chart ne crée jamais de secret en clair)
+database:
+  existingSecret: taskapi-db
+  passwordKey: password
+
+service:
+  type: ClusterIP
+  port: 80
+
+httpRoute:
+  enabled: true
+  hostnames: [taskapi-helm.localhost]
+  parentRefs:
+    - name: main
+      namespace: traefik
+      sectionName: web
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 96Mi
+  limits:
+    memory: 256Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 60
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+networkPolicy:
+  enabled: true
+  # Namespaces autorisés à joindre l'appli sur son port HTTP
+  allowedNamespaces: [traefik, monitoring]
+
+# Nécessite les CRD de Prometheus Operator (module 09)
+serviceMonitor:
+  enabled: false
+  interval: 15s
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

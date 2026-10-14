@@ -1,0 +1,17 @@
+{{- /* Ne rend la ressource que si le cluster connaît le type ServiceMonitor (CRD Prometheus Operator) */ -}}
+{{- if and .Values.serviceMonitor.enabled (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1/ServiceMonitor") }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "taskapi.fullname" . }}
+  labels:
+    {{- include "taskapi.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "taskapi.selectorLabels" . | nindent 6 }}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{ .Values.serviceMonitor.interval }}
+{{- end }}
