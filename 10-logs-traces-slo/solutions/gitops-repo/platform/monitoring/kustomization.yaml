@@ -1,0 +1,23 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: monitoring
+
+resources:
+  - routes.yaml
+  - alert-sink.yaml
+  - taskapi-rules.yaml
+  - slo-rules.yaml           # module 10
+
+# Dashboards « as code » : un ConfigMap par fichier JSON, détecté par le sidecar de Grafana
+configMapGenerator:
+  - name: dashboards-taskapi
+    files:
+      - dashboards/taskapi-red.json
+      - dashboards/taskapi-slo.json
+    options:
+      disableNameSuffixHash: true
+      labels:
+        grafana_dashboard: "1"
+  - name: alert-sink-script
+    files:
+      - alert_sink.py

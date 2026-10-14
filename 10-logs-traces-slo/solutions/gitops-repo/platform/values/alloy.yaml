@@ -1,0 +1,119 @@
+# Grafana Alloy : agent de collecte unique (successeur de Promtail et du Grafana Agent),
+# distribution de l'OpenTelemetry Collector. Ici il :
+#   1. lit les logs de tous les pods via l'API Kubernetes et les envoie à Loki ;
+#   2. reçoit les traces OTLP des applications et les transmet à Tempo.
+#   helm show values grafana/alloy | less
+controller:
+  # Lecture des logs via l'API Kubernetes → un seul pod suffit en labo.
+  # En production : DaemonSet qui lit /var/log/pods sur chaque nœud (plus efficace).
+  type: deployment
+  replicas: 1
+
+alloy:
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { memory: 384Mi }
+
+  # Ports OTLP exposés par le Service "alloy" (les applis y envoient leurs traces)
+  extraPorts:
+    - name: otlp-grpc
+      port: 4317
+      targetPort: 4317
+      protocol: TCP
+    - name: otlp-http
+      port: 4318
+      targetPort: 4318
+      protocol: TCP
+
+  configMap:
+    create: true
+    content: |
+      logging {
+        level  = "info"
+        format = "logfmt"
+      }
+
+      // ===================== LOGS =====================
+      // 1. Découvrir les pods du cluster
+      discovery.kubernetes "pods" {
+        role = "pod"
+      }
+
+      // 2. Transformer les métadonnées Kubernetes en labels Loki (peu nombreux : cardinalité !)
+      discovery.relabel "pods" {
+        targets = discovery.kubernetes.pods.targets
+
+        rule {
+          source_labels = ["__meta_kubernetes_namespace"]
+          target_label  = "namespace"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_name"]
+          target_label  = "pod"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_container_name"]
+          target_label  = "container"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"]
+          target_label  = "app"
+        }
+      }
+
+      // 3. Lire les logs des conteneurs via l'API Kubernetes
+      loki.source.kubernetes "pods" {
+        targets    = discovery.relabel.pods.output
+        forward_to = [loki.process.pods.receiver]
+      }
+
+      // 4. Pour taskapi (logs JSON) : extraire le niveau et en faire un label
+      loki.process "pods" {
+        forward_to = [loki.write.default.receiver]
+
+        stage.match {
+          selector = "{app=\"taskapi\"}"
+
+          stage.json {
+            expressions = { level = "level" }
+          }
+          stage.labels {
+            values = { level = "" }
+          }
+        }
+      }
+
+      // 5. Envoyer à Loki
+      loki.write "default" {
+        endpoint {
+          url = "http://loki.observability.svc:3100/loki/api/v1/push"
+        }
+      }
+
+      // ===================== TRACES =====================
+      otelcol.receiver.otlp "default" {
+        grpc {
+          endpoint = "0.0.0.0:4317"
+        }
+        http {
+          endpoint = "0.0.0.0:4318"
+        }
+        output {
+          traces = [otelcol.processor.batch.default.input]
+        }
+      }
+
+      otelcol.processor.batch "default" {
+        output {
+          traces = [otelcol.exporter.otlp.tempo.input]
+        }
+      }
+
+      otelcol.exporter.otlp "tempo" {
+        client {
+          endpoint = "tempo.observability.svc:4317"
+          tls {
+            insecure = true
+          }
+        }
+      }

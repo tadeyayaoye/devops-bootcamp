@@ -1,0 +1,142 @@
+# Valeurs de kube-prometheus-stack adaptées à kind sur 16 Go de RAM.
+#   helm show values prometheus-community/kube-prometheus-stack | less     (~4000 lignes)
+fullnameOverride: kps          # noms courts : kps-prometheus, kps-alertmanager, kps-grafana…
+
+crds:
+  enabled: true
+
+# --- Composants du control plane : dans kind ils n'écoutent que sur 127.0.0.1 → injoignables ---
+kubeEtcd:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+defaultRules:
+  create: true
+  rules:
+    etcd: false
+    kubeControllerManager: false
+    kubeSchedulerAlerting: false
+    kubeSchedulerRecording: false
+    kubeProxy: false
+
+# Docker/WSL : le montage de la racine de l'hôte échoue ("not a shared or slave mount")
+prometheus-node-exporter:
+  hostRootFsMount:
+    enabled: false
+
+prometheus:
+  prometheusSpec:
+    retention: 2d
+    retentionSize: 3GB
+    scrapeInterval: 30s
+    evaluationInterval: 30s
+    # Par défaut, Prometheus ne prend que les ServiceMonitor/règles portant le label de la release Helm.
+    # On lui dit de prendre TOUT ce qui existe dans le cluster.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+    enableFeatures:
+      - exemplar-storage
+    resources:
+      requests: { cpu: 100m, memory: 512Mi }
+      limits: { memory: 1536Mi }
+
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      requests: { cpu: 10m, memory: 32Mi }
+      limits: { memory: 128Mi }
+  config:
+    global:
+      resolve_timeout: 5m
+    route:
+      receiver: alert-sink
+      group_by: [alertname, namespace]
+      group_wait: 30s          # attendre d'autres alertes du même groupe avant d'envoyer
+      group_interval: 2m       # délai avant de renvoyer un groupe qui a changé
+      repeat_interval: 1h      # rappel si l'alerte est toujours active
+      routes:
+        - receiver: "null"
+          matchers: ['alertname = "Watchdog"']
+        - receiver: "null"
+          matchers: ['alertname = "InfoInhibitor"']
+    inhibit_rules:
+      # une alerte critique masque la warning équivalente
+      - source_matchers: ['severity = "critical"']
+        target_matchers: ['severity = "warning"']
+        equal: [alertname, namespace]
+    receivers:
+      - name: "null"
+      - name: alert-sink      # en entreprise : slack_configs, msteams_configs, pagerduty_configs, email_configs…
+        webhook_configs:
+          - url: http://alert-sink.monitoring.svc:8080/
+            send_resolved: true
+
+grafana:
+  adminPassword: bootcamp     # labo uniquement ; en vrai : admin.existingSecret (+ SSO)
+  defaultDashboardsTimezone: browser
+  grafana.ini:
+    server:
+      root_url: http://grafana.localhost
+    analytics:
+      check_for_updates: false
+      reporting_enabled: false
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      labelValue: "1"
+      searchNamespace: ALL
+  # Module 10 : logs et traces, CORRÉLÉS entre eux
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      uid: loki
+      access: proxy
+      url: http://loki.observability.svc:3100
+      jsonData:
+        maxLines: 1000
+        # Log → trace : un lien "Voir la trace" sur chaque ligne contenant un trace_id
+        derivedFields:
+          - name: trace_id
+            matcherRegex: '"trace_id": ?"(\w+)"'
+            datasourceUid: tempo
+            url: "$${__value.raw}"          # $$ = échappement du $ dans le provisioning Grafana
+            urlDisplayLabel: Voir la trace
+    - name: Tempo
+      type: tempo
+      uid: tempo
+      access: proxy
+      url: http://tempo.observability.svc:3200
+      jsonData:
+        # Trace → logs : depuis un span, ouvrir les logs du même service autour du même instant
+        tracesToLogsV2:
+          datasourceUid: loki
+          spanStartTimeShift: "-5m"
+          spanEndTimeShift: "5m"
+          filterByTraceID: true
+          tags:
+            - key: service.name
+              value: app
+        nodeGraph:
+          enabled: true
+        lokiSearch:
+          datasourceUid: loki
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { memory: 384Mi }
+
+kube-state-metrics:
+  resources:
+    requests: { cpu: 10m, memory: 32Mi }
+    limits: { memory: 128Mi }
+
+prometheusOperator:
+  resources:
+    requests: { cpu: 20m, memory: 64Mi }
+    limits: { memory: 256Mi }

@@ -3,4 +3,4 @@
 #   ansible-vault encrypt vault.yml        (utilise .vault_pass grâce à ansible.cfg)
 #   ansible-vault view vault.yml
 # Convention : préfixer les variables chiffrées par vault_ et les référencer depuis main.yml
-vault_db_password: "change-moi-avec-openssl-rand-hex-16"
+vault_db_password: "a-remplacer"

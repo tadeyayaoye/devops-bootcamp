@@ -1,0 +1,79 @@
+# SLO de taskapi
+#   - Disponibilité : 99 % des requêtes /api/* ne renvoient pas de 5xx (budget d'erreur = 1 %)
+#   - Latence       : 95 % des requêtes /api/* répondent en moins de 250 ms
+#
+# Alertes « multi-window, multi-burn-rate » (Google SRE Workbook, chap. 5) :
+#   burn rate = vitesse de consommation du budget. 1 = budget épuisé pile en 30 jours.
+#   14.4 sur 1 h (+ 5 min de confirmation) = 2 % du budget mensuel brûlé en 1 h → on réveille quelqu'un.
+#   6 sur 6 h (+ 30 min)                  = 5 % du budget en 6 h → ticket / heures ouvrées.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: taskapi-slo
+  labels:
+    app.kubernetes.io/part-of: devops-bootcamp
+spec:
+  groups:
+    - name: taskapi.slo.sli
+      interval: 30s
+      rules:
+        # --- SLI disponibilité : proportion de requêtes en erreur, sur plusieurs fenêtres ---
+        - record: slo:taskapi_errors:ratio_rate2m
+          expr: sum by (namespace) (rate(http_requests_total{job="taskapi", route=~"/api/.*", status=~"5.."}[2m])) / sum by (namespace) (rate(http_requests_total{job="taskapi", route=~"/api/.*"}[2m]))
+        - record: slo:taskapi_errors:ratio_rate5m
+          expr: sum by (namespace) (rate(http_requests_total{job="taskapi", route=~"/api/.*", status=~"5.."}[5m])) / sum by (namespace) (rate(http_requests_total{job="taskapi", route=~"/api/.*"}[5m]))
+        - record: slo:taskapi_errors:ratio_rate10m
+          expr: sum by (namespace) (rate(http_requests_total{job="taskapi", route=~"/api/.*", status=~"5.."}[10m])) / sum by (namespace) (rate(http_requests_total{job="taskapi", route=~"/api/.*"}[10m]))
+        - record: slo:taskapi_errors:ratio_rate30m
+          expr: sum by (namespace) (rate(http_requests_total{job="taskapi", route=~"/api/.*", status=~"5.."}[30m])) / sum by (namespace) (rate(http_requests_total{job="taskapi", route=~"/api/.*"}[30m]))
+        - record: slo:taskapi_errors:ratio_rate1h
+          expr: sum by (namespace) (rate(http_requests_total{job="taskapi", route=~"/api/.*", status=~"5.."}[1h])) / sum by (namespace) (rate(http_requests_total{job="taskapi", route=~"/api/.*"}[1h]))
+        - record: slo:taskapi_errors:ratio_rate6h
+          expr: sum by (namespace) (rate(http_requests_total{job="taskapi", route=~"/api/.*", status=~"5.."}[6h])) / sum by (namespace) (rate(http_requests_total{job="taskapi", route=~"/api/.*"}[6h]))
+
+        # --- SLI latence : proportion de requêtes « rapides » (< 250 ms) ---
+        - record: slo:taskapi_latency_good:ratio_rate5m
+          expr: sum by (namespace) (rate(http_request_duration_seconds_bucket{job="taskapi", route=~"/api/.*", le="0.25"}[5m])) / sum by (namespace) (rate(http_request_duration_seconds_count{job="taskapi", route=~"/api/.*"}[5m]))
+
+        # --- Objectifs (constantes réutilisables dans les dashboards) ---
+        - record: slo:taskapi_availability:objective
+          expr: vector(0.99)
+        - record: slo:taskapi_latency:objective
+          expr: vector(0.95)
+
+    - name: taskapi.slo.alerts
+      rules:
+        - alert: TaskapiErrorBudgetBurnFast
+          expr: |
+            slo:taskapi_errors:ratio_rate1h > (14.4 * 0.01)
+            and
+            slo:taskapi_errors:ratio_rate5m > (14.4 * 0.01)
+          labels:
+            severity: critical
+          annotations:
+            summary: "taskapi ({{ $labels.namespace }}) brûle son budget d'erreur 14× trop vite"
+            description: "À ce rythme, le budget mensuel (1 %) est épuisé en ~2 jours."
+            runbook_url: "https://github.com/tadeyayaoye/devops-bootcamp/blob/main/09-observabilite-metriques/RUNBOOKS.md#taskapihigherrorrate"
+
+        - alert: TaskapiErrorBudgetBurnSlow
+          expr: |
+            slo:taskapi_errors:ratio_rate6h > (6 * 0.01)
+            and
+            slo:taskapi_errors:ratio_rate30m > (6 * 0.01)
+          labels:
+            severity: warning
+          annotations:
+            summary: "taskapi ({{ $labels.namespace }}) consomme son budget d'erreur 6× trop vite"
+            description: "À ce rythme, le budget mensuel est épuisé en ~5 jours."
+
+        # Version ACCÉLÉRÉE pour le labo (fenêtres divisées par ~6) : on n'attend pas une heure
+        - alert: TaskapiErrorBudgetBurnLab
+          expr: |
+            slo:taskapi_errors:ratio_rate10m > (14.4 * 0.01)
+            and
+            slo:taskapi_errors:ratio_rate2m > (14.4 * 0.01)
+          labels:
+            severity: warning
+            lab: "true"
+          annotations:
+            summary: "[LABO] burn rate élevé sur taskapi ({{ $labels.namespace }})"

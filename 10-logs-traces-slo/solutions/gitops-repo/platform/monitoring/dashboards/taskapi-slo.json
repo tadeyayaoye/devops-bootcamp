@@ -1,0 +1,142 @@
+{
+  "title": "taskapi — SLO",
+  "uid": "taskapi-slo",
+  "description": "Objectifs de niveau de service : disponibilité 99 %, latence 95 % < 250 ms",
+  "tags": ["taskapi", "bootcamp", "slo"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "label": "Source",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": {},
+        "hide": 0
+      },
+      {
+        "name": "namespace",
+        "label": "Environnement",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "definition": "label_values(slo:taskapi_errors:ratio_rate5m, namespace)",
+        "query": { "query": "label_values(slo:taskapi_errors:ratio_rate5m, namespace)", "refId": "ns" },
+        "refresh": 2,
+        "includeAll": false,
+        "current": {},
+        "hide": 0
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Disponibilité (1 h) — objectif 99 %",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [{ "refId": "A", "expr": "1 - slo:taskapi_errors:ratio_rate1h{namespace=\"$namespace\"}" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 3,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 0.99 },
+              { "color": "green", "value": 0.995 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" }
+    },
+    {
+      "id": 2,
+      "type": "gauge",
+      "title": "Budget d'erreur restant (24 h glissantes)",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "1 - ((sum(increase(http_requests_total{job=\"taskapi\", namespace=\"$namespace\", route=~\"/api/.*\", status=~\"5..\"}[24h])) / sum(increase(http_requests_total{job=\"taskapi\", namespace=\"$namespace\", route=~\"/api/.*\"}[24h]))) / 0.01)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 0.25 },
+              { "color": "green", "value": 0.5 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Requêtes rapides < 250 ms (5 min) — objectif 95 %",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [{ "refId": "A", "expr": "slo:taskapi_latency_good:ratio_rate5m{namespace=\"$namespace\"}" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 0.95 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Burn rate (1 = budget consommé exactement en 30 jours)",
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        { "refId": "A", "expr": "slo:taskapi_errors:ratio_rate5m{namespace=\"$namespace\"} / 0.01", "legendFormat": "5 min" },
+        { "refId": "B", "expr": "slo:taskapi_errors:ratio_rate1h{namespace=\"$namespace\"} / 0.01", "legendFormat": "1 h" },
+        { "refId": "C", "expr": "slo:taskapi_errors:ratio_rate6h{namespace=\"$namespace\"} / 0.01", "legendFormat": "6 h" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "thresholdsStyle": { "mode": "line" } },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 6 },
+              { "color": "red", "value": 14.4 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    }
+  ]
+}

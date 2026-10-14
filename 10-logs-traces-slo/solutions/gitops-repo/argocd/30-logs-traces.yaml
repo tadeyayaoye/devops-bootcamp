@@ -1,0 +1,82 @@
+# Logs (Loki), traces (Tempo) et l'agent qui collecte les deux (Grafana Alloy).
+# ⚠ Depuis 2026, les charts loki et tempo sont publiés par grafana-community (et non plus grafana).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: loki
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-3"
+spec:
+  project: platform
+  sources:
+    - repoURL: https://grafana-community.github.io/helm-charts
+      chart: loki
+      targetRevision: "*"              # TODO : épingle la version
+      helm:
+        releaseName: loki
+        valueFiles:
+          - $values/platform/values/loki.yaml
+    - repoURL: https://github.com/tadeyayaoye/devops-bootcamp-gitops.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true, ServerSideApply=true]
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tempo
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-3"
+spec:
+  project: platform
+  sources:
+    - repoURL: https://grafana-community.github.io/helm-charts
+      chart: tempo
+      targetRevision: "*"              # TODO : épingle la version
+      helm:
+        releaseName: tempo
+        valueFiles:
+          - $values/platform/values/tempo.yaml
+    - repoURL: https://github.com/tadeyayaoye/devops-bootcamp-gitops.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true, ServerSideApply=true]
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: alloy
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  project: platform
+  sources:
+    - repoURL: https://grafana.github.io/helm-charts
+      chart: alloy
+      targetRevision: "*"              # TODO : épingle la version
+      helm:
+        releaseName: alloy
+        valueFiles:
+          - $values/platform/values/alloy.yaml
+    - repoURL: https://github.com/tadeyayaoye/devops-bootcamp-gitops.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true, ServerSideApply=true]

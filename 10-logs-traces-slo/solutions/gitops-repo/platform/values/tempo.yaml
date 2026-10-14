@@ -1,0 +1,19 @@
+# Tempo monolithique : reçoit les traces en OTLP, les stocke localement, les sert à Grafana.
+#   helm show values grafana-community/tempo | less
+tempo:
+  retention: 24h
+  server:
+    http_listen_port: 3200        # API de requête (datasource Grafana)
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { memory: 512Mi }
+
+persistence:
+  enabled: false                  # traces perdues au redémarrage : acceptable en labo
