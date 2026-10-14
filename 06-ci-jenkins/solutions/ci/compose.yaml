@@ -1,0 +1,75 @@
+# Plateforme CI locale.
+#   cp ci/.env.example ci/.env  (puis remplis-le)
+#   docker compose -f ci/compose.yaml up -d --build jenkins                 → http://localhost:8080
+#   docker compose -f ci/compose.yaml --profile sonar up -d sonarqube sonar-db   → http://localhost:9000  (module 07)
+name: ci
+
+services:
+  jenkins:
+    build: ./jenkins
+    image: bootcamp-jenkins:latest
+    container_name: jenkins
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+    env_file: .env
+    environment:
+      CASC_JENKINS_CONFIG: /var/jenkins_conf
+      JAVA_OPTS: "-Djenkins.install.runSetupWizard=false -Xmx1g"
+    # Accès au démon Docker de l'hôte (« Docker-out-of-Docker ») : le groupe docker de l'hôte
+    group_add:
+      - "${DOCKER_GID}"
+    volumes:
+      # Même chemin dans le conteneur ET sur l'hôte : quand Jenkins lance un conteneur d'agent
+      # avec "-v <workspace>:<workspace>", le démon (qui tourne sur l'hôte) trouve le bon dossier.
+      - /var/jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./jenkins/casc:/var/jenkins_conf:ro
+    networks: [cicd]
+
+  sonarqube:
+    image: sonarqube:community
+    container_name: sonarqube
+    profiles: [sonar]
+    restart: unless-stopped
+    depends_on:
+      sonar-db:
+        condition: service_healthy
+    environment:
+      SONAR_JDBC_URL: jdbc:postgresql://sonar-db:5432/sonar
+      SONAR_JDBC_USERNAME: sonar
+      SONAR_JDBC_PASSWORD: sonar
+    ports:
+      - "127.0.0.1:9000:9000"
+    volumes:
+      - sonar_data:/opt/sonarqube/data
+      - sonar_extensions:/opt/sonarqube/extensions
+      - sonar_logs:/opt/sonarqube/logs
+    networks: [cicd]
+
+  sonar-db:
+    image: postgres:17-alpine
+    container_name: sonar-db
+    profiles: [sonar]
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sonar
+      POSTGRES_PASSWORD: sonar
+      POSTGRES_DB: sonar
+    volumes:
+      - sonar_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sonar"]
+      interval: 5s
+      retries: 10
+    networks: [cicd]
+
+networks:
+  cicd:
+    name: cicd       # nom fixe : les conteneurs lancés par le pipeline s'y rattachent (--network cicd)
+
+volumes:
+  sonar_data:
+  sonar_extensions:
+  sonar_logs:
+  sonar_db:

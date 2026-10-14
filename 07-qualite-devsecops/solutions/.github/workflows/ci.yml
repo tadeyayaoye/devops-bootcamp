@@ -1,0 +1,125 @@
+# Le même pipeline que Jenkins, en GitHub Actions (runners hébergés par GitHub, gratuits pour un repo public).
+# ⚠ Après copie dans .github/workflows/, épingle les actions par SHA : ./scripts/pin-actions.sh
+name: CI taskapi
+
+on:
+  push:
+    branches: [main]
+    paths: ["app/**", ".github/workflows/ci.yml"]
+  pull_request:
+    paths: ["app/**", ".github/workflows/ci.yml"]
+  workflow_dispatch: {}
+
+# Moindre privilège par défaut ; chaque job élargit si nécessaire
+permissions:
+  contents: read
+
+# Un nouveau push sur la même branche annule le run précédent
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/taskapi
+  TRIVY_IMAGE: aquasec/trivy:0.69.3
+
+jobs:
+  secrets:
+    name: Secrets (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0          # tout l'historique : on scanne chaque commit
+      - name: gitleaks (historique complet)
+        run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.24.0 git /repo --no-banner --redact
+
+  test:
+    name: Lint & tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: app/requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check . --output-format=github     # annotations directement dans la PR
+      - run: |
+          mkdir -p reports
+          pytest --junitxml=reports/junit.xml --cov --cov-report=xml --cov-report=term
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rapports-tests
+          path: |
+            app/reports/
+            app/coverage.xml
+
+  image:
+    name: Build, scan, publication
+    needs: [secrets, test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write             # pousser sur GHCR avec le GITHUB_TOKEN éphémère (pas de PAT !)
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Calculer le tag
+        run: echo "TAG=gha-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+
+      - name: Lint du Dockerfile
+        run: docker run --rm -i hadolint/hadolint:v2.12.0 hadolint --failure-threshold error - < app/Dockerfile
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build (chargée localement pour le scan)
+        uses: docker/build-push-action@v6
+        with:
+          context: app
+          load: true
+          tags: ${{ env.IMAGE }}:${{ env.TAG }}
+          build-args: |
+            APP_VERSION=${{ env.TAG }}
+            GIT_SHA=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Scan Trivy (bloquant sur CRITICAL corrigeables)
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "$TRIVY_IMAGE" \
+            image --quiet --scanners vuln --severity CRITICAL --ignore-unfixed --exit-code 1 "$IMAGE:$TAG"
+
+      - name: SBOM
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "$TRIVY_IMAGE" \
+            image --quiet --format cyclonedx "$IMAGE:$TAG" > sbom.cdx.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.cdx.json
+
+      - name: Connexion à GHCR
+        if: github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publication
+        if: github.ref == 'refs/heads/main'
+        run: docker push "$IMAGE:$TAG"
+
+      - name: Résumé
+        if: always()
+        run: |
+          {
+            echo "### Image ${IMAGE}:${TAG}"
+            echo "- Publiée : ${{ github.ref == 'refs/heads/main' }}"
+          } >> "$GITHUB_STEP_SUMMARY"

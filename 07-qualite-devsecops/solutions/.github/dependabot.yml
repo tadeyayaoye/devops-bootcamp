@@ -1,0 +1,20 @@
+# Dependabot ouvre des PR de mise à jour : la CI les valide, tu n'as plus qu'à merger.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /app
+    schedule:
+      interval: weekly
+    groups:
+      opentelemetry:
+        patterns: ["opentelemetry-*"]
+
+  - package-ecosystem: docker
+    directory: /app
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: github-actions      # met aussi à jour les SHA épinglés
+    directory: /
+    schedule:
+      interval: weekly

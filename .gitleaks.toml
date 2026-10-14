@@ -1,0 +1,15 @@
+# Configuration gitleaks : règles par défaut + exclusion des caches et artefacts locaux.
+#   gitleaks dir . --no-banner        (fichiers)
+#   gitleaks git . --no-banner        (tout l'historique Git)
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Caches, dépendances et artefacts générés"
+paths = [
+  '''(^|/)\.pip-cache/''',
+  '''(^|/)\.sonar/''',
+  '''(^|/)\.venv/''',
+  '''(^|/)\.terraform/''',
+  '''sbom-.*\.json$''',
+]

@@ -1,0 +1,17 @@
+# Un plugin par ligne (nom[:version]). Sans version = dernière compatible.
+# En entreprise on épingle les versions et on les met à jour volontairement (comme des dépendances).
+configuration-as-code
+job-dsl
+workflow-aggregator
+pipeline-graph-view
+pipeline-stage-view
+git
+docker-workflow
+credentials-binding
+pipeline-utility-steps
+timestamper
+ansicolor
+ws-cleanup
+junit
+coverage
+sonar

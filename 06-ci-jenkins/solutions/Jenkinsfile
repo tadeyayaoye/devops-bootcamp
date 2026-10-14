@@ -1,0 +1,116 @@
+// =============================================================================
+// Pipeline CI de taskapi — version MODULE 06 (intégration continue)
+//   checkout → préparation → lint + tests (conteneur Python) → build image → smoke test
+// Les modules 07 et 08 ajoutent qualité, sécurité, publication et déploiement GitOps.
+// =============================================================================
+pipeline {
+    agent any
+
+    options {
+        timestamps()
+        ansiColor('xterm')
+        buildDiscarder(logRotator(numToKeepStr: '20'))
+        timeout(time: 30, unit: 'MINUTES')
+        disableConcurrentBuilds()
+    }
+
+    environment {
+        IMAGE_NAME = 'ghcr.io/tadeyayaoye/taskapi'
+    }
+
+    stages {
+        stage('Préparation') {
+            steps {
+                script {
+                    env.SHORT_SHA = sh(script: 'git rev-parse --short=7 HEAD', returnStdout: true).trim()
+                    env.IMAGE_TAG = env.SHORT_SHA
+                    currentBuild.displayName = "#${env.BUILD_NUMBER} · ${env.SHORT_SHA}"
+                }
+                sh 'git log -1 --pretty="Commit %h par %an : %s"'
+            }
+        }
+
+        stage('Lint & tests') {
+            // Étape exécutée dans un conteneur jetable : aucune dépendance installée sur Jenkins
+            agent {
+                docker {
+                    image 'python:3.12-slim'
+                    reuseNode true          // même nœud, même workspace que le reste du pipeline
+                }
+            }
+            environment {
+                HOME = "${env.WORKSPACE}"
+                PIP_CACHE_DIR = "${env.WORKSPACE}/.pip-cache"
+            }
+            steps {
+                dir('app') {
+                    sh '''
+                        python -m venv .venv
+                        . .venv/bin/activate
+                        pip install -q -r requirements-dev.txt
+                        ruff check .
+                        mkdir -p reports
+                        pytest --junitxml=reports/junit.xml --cov --cov-report=xml --cov-report=term
+                    '''
+                }
+            }
+            post {
+                always {
+                    junit 'app/reports/junit.xml'
+                    recordCoverage(tools: [[parser: 'COBERTURA', pattern: 'app/coverage.xml']],
+                                   sourceDirectories: [[path: 'app/src']])
+                }
+            }
+        }
+
+        stage('Build image') {
+            steps {
+                sh '''
+                    docker build --pull \
+                      --build-arg APP_VERSION=${SHORT_SHA} \
+                      --build-arg GIT_SHA=${GIT_COMMIT} \
+                      -t ${IMAGE_NAME}:${IMAGE_TAG} app/
+                    docker image ls ${IMAGE_NAME}:${IMAGE_TAG}
+                '''
+            }
+        }
+
+        stage('Smoke test') {
+            environment {
+                SMOKE = "smoke-${env.BUILD_NUMBER}-${env.SHORT_SHA}"
+            }
+            steps {
+                sh '''
+                    docker run -d --name ${SMOKE} --network cicd \
+                      -e DATABASE_URL=sqlite:////tmp/smoke.db ${IMAGE_NAME}:${IMAGE_TAG}
+                    for i in $(seq 1 30); do
+                      if curl -fsS http://${SMOKE}:8000/readyz; then
+                        echo; curl -fsS http://${SMOKE}:8000/version; echo
+                        exit 0
+                      fi
+                      sleep 1
+                    done
+                    echo "L'application ne répond pas :"; docker logs ${SMOKE}; exit 1
+                '''
+            }
+            post {
+                always {
+                    sh 'docker rm -f ${SMOKE} || true'
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ ${env.IMAGE_NAME}:${env.IMAGE_TAG} construite et testée"
+        }
+        failure {
+            echo '❌ Pipeline en échec : lis le premier stage rouge, puis ses logs'
+        }
+        cleanup {
+            cleanWs(deleteDirs: true, notFailBuild: true,
+                    patterns: [[pattern: '.pip-cache/**', type: 'EXCLUDE']])
+        }
+    }
+}

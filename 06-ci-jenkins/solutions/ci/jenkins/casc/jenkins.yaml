@@ -1,0 +1,85 @@
+# Jenkins Configuration as Code (JCasC) : toute la configuration de Jenkins, versionnée.
+# Les ${VAR} viennent de ci/.env (jamais de secret dans ce fichier).
+# Recharger sans redémarrer : Manage Jenkins → Configuration as Code → Reload existing configuration
+jenkins:
+  systemMessage: "Jenkins du bootcamp DevOps — configuré par JCasC, ne pas modifier à la main"
+  # En production : 0 exécuteur sur le contrôleur, tout tourne sur des agents.
+  # Ici les étapes lourdes tournent dans des conteneurs Docker éphémères lancés depuis le contrôleur.
+  numExecutors: 2
+  mode: NORMAL
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: admin
+          name: Administrateur
+          password: "${JENKINS_ADMIN_PASSWORD}"
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false
+  crumbIssuer:
+    standard:
+      excludeClientIPFromCrumb: true
+
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - usernamePassword:
+              scope: GLOBAL
+              id: github-token
+              description: "PAT GitHub (GHCR + repo GitOps)"
+              username: "${GITHUB_USER}"
+              password: "${GITHUB_TOKEN:-non-defini}"
+          - string:
+              scope: GLOBAL
+              id: sonar-token
+              description: "Token d'analyse SonarQube"
+              secret: "${SONAR_TOKEN:-non-defini}"
+
+unclassified:
+  location:
+    url: "http://localhost:8080/"
+  sonarGlobalConfiguration:
+    buildWrapperEnabled: true
+    installations:
+      - name: sonarqube
+        serverUrl: "http://sonarqube:9000"
+        credentialsId: sonar-token
+
+# Les jobs aussi sont du code (plugin Job DSL)
+jobs:
+  - script: |
+      multibranchPipelineJob('taskapi') {
+        displayName('taskapi')
+        description('Pipeline CI/CD de l application fil rouge (Jenkinsfile à la racine du repo)')
+        branchSources {
+          branchSource {
+            source {
+              git {
+                id('taskapi-github')
+                remote('https://github.com/tadeyayaoye/devops-bootcamp.git')
+                traits {
+                  gitBranchDiscovery()
+                }
+              }
+            }
+          }
+        }
+        factory {
+          workflowBranchProjectFactory {
+            scriptPath('Jenkinsfile')
+          }
+        }
+        // Pas de webhook possible (Jenkins n'est pas joignable depuis Internet) → scan périodique
+        triggers {
+          periodicFolderTrigger {
+            interval('2m')
+          }
+        }
+        orphanedItemStrategy {
+          discardOldItems {
+            numToKeep(5)
+          }
+        }
+      }
