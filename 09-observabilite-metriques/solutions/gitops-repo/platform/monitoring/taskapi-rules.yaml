@@ -1,0 +1,74 @@
+# Règles Prometheus de taskapi : enregistrements (pré-calculs) + alertes.
+# Une seule copie (dans monitoring) pour tous les environnements : les expressions agrègent "by (namespace)".
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: taskapi
+  labels:
+    app.kubernetes.io/part-of: devops-bootcamp
+spec:
+  groups:
+    # ---------------------------------------------------------------------------------------
+    - name: taskapi.recording
+      interval: 30s
+      rules:
+        # Convention de nommage : niveau:métrique:opérations
+        - record: namespace:taskapi_http_requests:rate5m
+          expr: sum by (namespace) (rate(http_requests_total{job="taskapi", route!~"/metrics|/healthz|/readyz"}[5m]))
+
+        - record: namespace_route:taskapi_http_requests:rate5m
+          expr: sum by (namespace, route) (rate(http_requests_total{job="taskapi", route!~"/metrics|/healthz|/readyz"}[5m]))
+
+        - record: namespace:taskapi_http_errors:ratio_rate5m
+          expr: |
+            sum by (namespace) (rate(http_requests_total{job="taskapi", status=~"5.."}[5m]))
+            /
+            sum by (namespace) (rate(http_requests_total{job="taskapi", route!~"/metrics|/healthz|/readyz"}[5m]))
+
+        - record: namespace:taskapi_http_latency_seconds:p95_5m
+          expr: |
+            histogram_quantile(0.95,
+              sum by (namespace, le) (rate(http_request_duration_seconds_bucket{job="taskapi", route!~"/metrics|/healthz|/readyz"}[5m])))
+
+    # ---------------------------------------------------------------------------------------
+    - name: taskapi.alerts
+      rules:
+        - alert: TaskapiDown
+          # Toutes les cibles sont DOWN. ⚠ Si plus AUCUNE cible n'existe (Deployment supprimé),
+          # la série disparaît et cette règle se tait : c'est le rôle de absent() (voir challenge du lab).
+          expr: sum by (namespace) (up{job="taskapi"}) == 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "taskapi est injoignable dans {{ $labels.namespace }}"
+            description: "Aucune instance de taskapi n'est scrapée avec succès depuis 1 minute."
+            runbook_url: "https://github.com/tadeyayaoye/devops-bootcamp/blob/main/09-observabilite-metriques/RUNBOOKS.md#taskapidown"
+
+        - alert: TaskapiHighErrorRate
+          expr: namespace:taskapi_http_errors:ratio_rate5m > 0.05
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "{{ $value | humanizePercentage }} d'erreurs 5xx sur taskapi ({{ $labels.namespace }})"
+            description: "Plus de 5 % des requêtes échouent depuis 2 minutes."
+            runbook_url: "https://github.com/tadeyayaoye/devops-bootcamp/blob/main/09-observabilite-metriques/RUNBOOKS.md#taskapihigherrorrate"
+
+        - alert: TaskapiHighLatency
+          expr: namespace:taskapi_http_latency_seconds:p95_5m > 0.5
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "p95 de taskapi à {{ $value | humanizeDuration }} ({{ $labels.namespace }})"
+            description: "95 % des requêtes devraient répondre en moins de 500 ms."
+            runbook_url: "https://github.com/tadeyayaoye/devops-bootcamp/blob/main/09-observabilite-metriques/RUNBOOKS.md#taskapihighlatency"
+
+        - alert: TaskapiPodRestarting
+          expr: increase(kube_pod_container_status_restarts_total{container="taskapi"}[15m]) > 2
+          labels:
+            severity: warning
+          annotations:
+            summary: "Le pod {{ $labels.pod }} ({{ $labels.namespace }}) redémarre en boucle"
+            description: "Plus de 2 redémarrages en 15 minutes : OOMKilled ? liveness ? crash au démarrage ?"

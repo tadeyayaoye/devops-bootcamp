@@ -1,0 +1,57 @@
+# kube-prometheus-stack : Prometheus Operator + Prometheus + Alertmanager + Grafana
+# + node-exporter + kube-state-metrics + règles et dashboards par défaut.
+# Multi-sources : le chart vient de son dépôt Helm, les VALEURS viennent de notre repo Git.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-prometheus-stack
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-3"
+spec:
+  project: platform
+  sources:
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: kube-prometheus-stack
+      targetRevision: "*"              # TODO lab 9.1 : épingle (helm search repo prometheus-community/kube-prometheus-stack)
+      helm:
+        releaseName: kps
+        valueFiles:
+          - $values/platform/values/kube-prometheus-stack.yaml
+    - repoURL: https://github.com/tadeyayaoye/devops-bootcamp-gitops.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true          # les CRD de Prometheus Operator dépassent la limite de taille d'annotation
+---
+# Notre configuration de supervision : règles, dashboards, routes, récepteur d'alertes.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring-config
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  project: platform
+  source:
+    repoURL: https://github.com/tadeyayaoye/devops-bootcamp-gitops.git
+    targetRevision: main
+    path: platform/monitoring
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - SkipDryRunOnMissingResource=true   # PrometheusRule existe seulement une fois les CRD installées

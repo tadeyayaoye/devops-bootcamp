@@ -1,0 +1,18 @@
+# Indique à Prometheus Operator de scraper /metrics de tous les pods derrière le Service taskapi.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: taskapi
+  labels:
+    app.kubernetes.io/name: taskapi
+  annotations:
+    # Le type ServiceMonitor n'existe qu'une fois kube-prometheus-stack installé
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: taskapi
+  endpoints:
+    - port: http          # nom du port du Service
+      path: /metrics
+      interval: 15s
