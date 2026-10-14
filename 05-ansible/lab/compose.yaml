@@ -1,0 +1,35 @@
+# 3 « serveurs » pour Ansible : web1, web2 (nginx + taskapi), db1 (PostgreSQL).
+#   cp ~/.ssh/bootcamp_ansible.pub 05-ansible/lab/authorized_keys
+#   docker compose -f 05-ansible/lab/compose.yaml up -d --build
+name: ansible-lab
+
+x-node: &node
+  build: .
+  image: ansible-lab-node:latest
+  restart: unless-stopped
+
+services:
+  web1:
+    <<: *node
+    hostname: web1
+    ports: ["127.0.0.1:2221:22", "127.0.0.1:8081:80"]
+    networks:
+      lab: { ipv4_address: 172.30.0.11 }
+  web2:
+    <<: *node
+    hostname: web2
+    ports: ["127.0.0.1:2222:22", "127.0.0.1:8082:80"]
+    networks:
+      lab: { ipv4_address: 172.30.0.12 }
+  db1:
+    <<: *node
+    hostname: db1
+    ports: ["127.0.0.1:2223:22"]
+    networks:
+      lab: { ipv4_address: 172.30.0.13 }
+
+networks:
+  lab:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24

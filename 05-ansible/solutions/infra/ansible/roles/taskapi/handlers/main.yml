@@ -1,0 +1,12 @@
+---
+# Deux handlers abonnés au même « topic » via listen : ils s'exécutent dans cet ordre
+- name: Relire la configuration supervisor
+  ansible.builtin.command: supervisorctl update
+  changed_when: true
+  listen: Redémarrer taskapi
+
+- name: Redémarrer le programme taskapi
+  community.general.supervisorctl:
+    name: taskapi
+    state: restarted
+  listen: Redémarrer taskapi

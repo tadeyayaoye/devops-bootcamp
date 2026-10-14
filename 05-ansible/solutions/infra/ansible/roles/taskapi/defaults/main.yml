@@ -1,0 +1,6 @@
+---
+taskapi_user: taskapi
+taskapi_home: /opt/taskapi
+taskapi_port: 8000
+taskapi_log_dir: /var/log/taskapi
+app_env: ansible

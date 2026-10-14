@@ -1,0 +1,5 @@
+apiVersion: v2
+name: platform-routes
+description: HTTPRoutes génériques vers les outils de plateforme (une entrée par route dans values.routes)
+type: application
+version: 0.1.0

@@ -1,0 +1,65 @@
+---
+# Déploiement « à l'ancienne » (sans conteneur) : venv Python + superviseur de processus.
+# Les serveurs de labo n'ont pas systemd : on utilise supervisor (sur une vraie VM : une unité systemd).
+
+- name: Installer les prérequis
+  ansible.builtin.apt:
+    name: [python3-venv, python3-pip, supervisor]
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Créer l'utilisateur système de l'application
+  ansible.builtin.user:
+    name: "{{ taskapi_user }}"
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+
+- name: Créer les dossiers
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    mode: "0755"
+  loop:
+    - { path: "{{ taskapi_home }}", owner: root }
+    - { path: "{{ taskapi_log_dir }}", owner: "{{ taskapi_user }}" }
+
+- name: Copier le code de l'application (lisible, non modifiable par l'appli)
+  ansible.builtin.copy:
+    src: "{{ taskapi_source_dir }}/src/"
+    dest: "{{ taskapi_home }}/src/"
+    owner: root
+    group: root
+    mode: u=rwX,g=rX,o=rX
+  notify: Redémarrer taskapi
+
+- name: Copier les dépendances
+  ansible.builtin.copy:
+    src: "{{ taskapi_source_dir }}/requirements.txt"
+    dest: "{{ taskapi_home }}/requirements.txt"
+    mode: "0644"
+
+# Le module pip est idempotent : "changed" seulement s'il installe/met à jour quelque chose
+- name: Installer les dépendances dans un venv
+  ansible.builtin.pip:
+    requirements: "{{ taskapi_home }}/requirements.txt"
+    virtualenv: "{{ taskapi_home }}/venv"
+    virtualenv_command: python3 -m venv
+  notify: Redémarrer taskapi
+
+- name: Déclarer le programme dans supervisor (contient le mot de passe → 0640)
+  ansible.builtin.template:
+    src: supervisor-taskapi.conf.j2
+    dest: /etc/supervisor/conf.d/taskapi.conf
+    owner: root
+    group: root
+    mode: "0640"
+  notify: Redémarrer taskapi
+
+- name: Démarrer supervisor
+  ansible.builtin.service:
+    name: supervisor
+    state: started
+    enabled: true

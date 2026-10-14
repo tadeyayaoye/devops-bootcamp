@@ -1,0 +1,5 @@
+---
+# defaults = valeurs de plus faible priorité : faites pour être surchargées (group_vars, -e…)
+pg_listen_addresses: "*"
+pg_allowed_cidr: 127.0.0.1/32
+pg_max_connections: 50

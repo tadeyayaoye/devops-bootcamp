@@ -1,0 +1,2 @@
+# Réseau autorisé à se connecter à PostgreSQL (le sous-réseau Docker du labo)
+pg_allowed_cidr: 172.30.0.0/24

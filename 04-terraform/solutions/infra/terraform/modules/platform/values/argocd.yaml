@@ -1,0 +1,39 @@
+# Argo CD allégé pour un poste de 16 Go.
+#   helm show values argo/argo-cd | less
+configs:
+  params:
+    # TLS terminé par la Gateway (ici : pas de TLS du tout en local) → le serveur parle HTTP
+    server.insecure: true
+  cm:
+    # Fréquence à laquelle Argo CD interroge Git (défaut 180 s ; en prod on préfère un webhook)
+    timeout.reconciliation: 60s
+    # Les Applications ignorent les champs gérés par l'HPA
+    resource.customizations.ignoreDifferences.apps_Deployment: |
+      jqPathExpressions:
+        - .spec.replicas
+
+dex:
+  enabled: false          # pas de SSO en local
+notifications:
+  enabled: false
+
+controller:
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 1Gi }
+server:
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { memory: 256Mi }
+repoServer:
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { memory: 512Mi }
+applicationSet:
+  resources:
+    requests: { cpu: 20m, memory: 64Mi }
+    limits: { memory: 256Mi }
+redis:
+  resources:
+    requests: { cpu: 20m, memory: 32Mi }
+    limits: { memory: 128Mi }

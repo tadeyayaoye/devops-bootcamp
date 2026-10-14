@@ -1,0 +1,24 @@
+# Variables communes à tous les hôtes.
+timezone: Europe/Paris
+
+base_packages:
+  - acl            # indispensable pour "become_user" vers un utilisateur non privilégié (postgres)
+  - curl
+  - htop
+  - tzdata
+  - ca-certificates
+  - vim-tiny
+
+# Comptes d'administration créés sur chaque serveur (clé SSH = la tienne)
+admin_users:
+  - name: deploy
+    comment: "Compte de déploiement"
+admin_public_key: "{{ lookup('ansible.builtin.file', '~/.ssh/bootcamp_ansible.pub') }}"
+
+# Base de données
+db_name: taskapi
+db_user: taskapi
+db_password: "{{ vault_db_password }}"   # défini (chiffré) dans vault.yml
+db_host: db1                            # nom DNS sur le réseau Docker du labo
+
+app_version: "1.0.0"

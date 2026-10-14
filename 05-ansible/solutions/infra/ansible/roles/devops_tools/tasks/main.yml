@@ -1,0 +1,48 @@
+---
+- name: Vérifier la présence des outils (lecture seule → changed_when false)
+  ansible.builtin.command: "{{ item.value }}"
+  loop: "{{ devops_tools_expected | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  register: tool_versions
+  changed_when: false
+  failed_when: false
+
+- name: Lister les outils manquants
+  ansible.builtin.set_fact:
+    missing_tools: "{{ tool_versions.results | selectattr('rc', 'ne', 0) | map(attribute='item.key') | list }}"
+
+- name: Échouer proprement s'il manque quelque chose
+  ansible.builtin.assert:
+    that: missing_tools | length == 0
+    fail_msg: "Outils manquants : {{ missing_tools | join(', ') }} → relance scripts/bootstrap-wsl.sh"
+    success_msg: "Tous les outils sont présents"
+
+- name: Installer les paquets complémentaires
+  ansible.builtin.apt:
+    name: "{{ devops_tools_apt }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  become: true
+
+- name: Sécuriser le dossier ~/.kube (il contient des identifiants)
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/.kube"
+    state: directory
+    mode: "0700"
+
+- name: Sécuriser le kubeconfig
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/.kube/config"
+    mode: "0600"
+  failed_when: false
+
+- name: Ajouter les alias dans ~/.bashrc (bloc géré, idempotent)
+  ansible.builtin.blockinfile:
+    path: "{{ ansible_env.HOME }}/.bashrc"
+    marker: "# {mark} ALIAS GÉRÉS PAR ANSIBLE"
+    block: |
+      {% for name, cmd in devops_tools_aliases.items() %}
+      alias {{ name }}='{{ cmd }}'
+      {% endfor %}

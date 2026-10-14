@@ -1,0 +1,8 @@
+
+  ┌─────────────────────────────────────────────────────┐
+  │  {{ inventory_hostname | upper }} — géré par Ansible, ne pas modifier à la main
+  │  Groupes : {{ group_names | join(', ') }}
+  │  OS      : {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}
+  │  CPU/RAM : {{ ansible_facts['processor_vcpus'] }} vCPU / {{ ansible_facts['memtotal_mb'] }} Mo
+  └─────────────────────────────────────────────────────┘
+

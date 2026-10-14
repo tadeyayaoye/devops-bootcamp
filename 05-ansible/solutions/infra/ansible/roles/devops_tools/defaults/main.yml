@@ -1,0 +1,23 @@
+---
+# Outils attendus et commande qui affiche leur version
+devops_tools_expected:
+  kubectl: kubectl version --client -o yaml
+  helm: helm version --short
+  kind: kind version
+  terraform: terraform version
+  docker: docker --version
+  argocd: argocd version --client --short
+
+# Paquets apt complémentaires
+devops_tools_apt:
+  - shellcheck
+  - kubectx          # fournit kubectx et kubens
+  - tmux
+
+devops_tools_aliases:
+  k: kubectl
+  kx: kubectx
+  kn: kubens
+  tf: terraform
+  dcu: docker compose up -d
+  dcd: docker compose down

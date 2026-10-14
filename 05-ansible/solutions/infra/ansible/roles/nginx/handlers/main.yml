@@ -1,0 +1,11 @@
+---
+- name: Tester la configuration nginx
+  ansible.builtin.command: nginx -t
+  changed_when: false
+  listen: Recharger nginx
+
+- name: Recharger le service nginx
+  ansible.builtin.service:
+    name: nginx
+    state: reloaded
+  listen: Recharger nginx

@@ -1,0 +1,4 @@
+# metrics-server : fournit `kubectl top` et les métriques CPU/mémoire de l'HPA.
+# kind : les kubelets ont des certificats auto-signés → on désactive la vérification TLS (jamais en prod).
+args:
+  - --kubelet-insecure-tls

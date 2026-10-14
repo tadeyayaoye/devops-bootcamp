@@ -1,0 +1,9 @@
+---
+# Ton poste WSL géré par Ansible (comparaison avec scripts/bootstrap-wsl.sh).
+#   ansible-playbook playbooks/workstation.yml -K      (-K : demande le mot de passe sudo)
+- name: Poste de travail DevOps
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  roles:
+    - devops_tools

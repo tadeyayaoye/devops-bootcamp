@@ -1,0 +1,37 @@
+---
+# Playbook principal : converge TOUT le labo vers l'état décrit.
+#   ansible-playbook playbooks/site.yml              (tout)
+#   ansible-playbook playbooks/site.yml --tags db    (seulement la base)
+#   ansible-playbook playbooks/site.yml --check --diff   (simulation)
+
+- name: Socle commun
+  hosts: lab
+  become: true
+  tags: [common]
+  roles:
+    - common
+
+- name: Base de données
+  hosts: db
+  become: true
+  tags: [db]
+  roles:
+    - postgresql
+
+- name: Serveurs applicatifs
+  hosts: web
+  become: true
+  tags: [web]
+  roles:
+    - taskapi
+    - nginx
+  post_tasks:
+    - name: Vérifier que l'application répond derrière nginx
+      ansible.builtin.uri:
+        url: http://127.0.0.1/readyz
+        status_code: 200
+      register: ready
+      retries: 10
+      delay: 3
+      until: ready.status == 200
+      changed_when: false

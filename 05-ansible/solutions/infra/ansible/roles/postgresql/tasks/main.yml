@@ -1,0 +1,65 @@
+---
+- name: Installer PostgreSQL et le pilote Python utilisé par les modules community.postgresql
+  ansible.builtin.apt:
+    name: [postgresql, python3-psycopg2]
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Trouver le dossier de configuration (dépend de la version installée)
+  ansible.builtin.find:
+    paths: /etc/postgresql
+    file_type: directory
+    recurse: false
+  register: pg_versions
+
+- name: Retenir le chemin de configuration
+  ansible.builtin.set_fact:
+    pg_conf_dir: "{{ (pg_versions.files | map(attribute='path') | sort | last) }}/main"
+
+- name: Configurer postgresql.conf
+  ansible.builtin.lineinfile:
+    path: "{{ pg_conf_dir }}/postgresql.conf"
+    regexp: "^#?{{ item.key }}\\s*="
+    line: "{{ item.key }} = {{ item.value }}"
+  loop:
+    - { key: listen_addresses, value: "'{{ pg_listen_addresses }}'" }
+    - { key: max_connections, value: "{{ pg_max_connections }}" }
+  loop_control:
+    label: "{{ item.key }}"
+  notify: Redémarrer postgresql
+
+- name: Configurer l'authentification (pg_hba.conf)
+  ansible.builtin.template:
+    src: pg_hba.conf.j2
+    dest: "{{ pg_conf_dir }}/pg_hba.conf"
+    owner: postgres
+    group: postgres
+    mode: "0640"
+  notify: Redémarrer postgresql
+
+- name: Démarrer PostgreSQL
+  ansible.builtin.service:
+    name: postgresql
+    state: started
+    enabled: true
+
+# Les handlers notifiés plus haut s'exécutent MAINTENANT (sinon en fin de play),
+# car la création de l'utilisateur ci-dessous a besoin de la configuration finale
+- name: Appliquer les redémarrages en attente
+  ansible.builtin.meta: flush_handlers
+
+- name: Créer l'utilisateur applicatif
+  community.postgresql.postgresql_user:
+    name: "{{ db_user }}"
+    password: "{{ db_password }}"
+  become: true
+  become_user: postgres
+  no_log: true                # le mot de passe n'apparaît jamais dans la sortie
+
+- name: Créer la base applicative
+  community.postgresql.postgresql_db:
+    name: "{{ db_name }}"
+    owner: "{{ db_user }}"
+  become: true
+  become_user: postgres

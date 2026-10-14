@@ -1,0 +1,15 @@
+; {{ ansible_managed }}
+[program:taskapi]
+command={{ taskapi_home }}/venv/bin/uvicorn taskapi.main:create_app --factory --host 127.0.0.1 --port {{ taskapi_port }} --no-access-log
+directory={{ taskapi_home }}
+user={{ taskapi_user }}
+environment=PYTHONPATH="{{ taskapi_home }}/src",APP_ENV="{{ app_env }}",APP_VERSION="{{ app_version }}",DB_HOST="{{ db_host }}",DB_NAME="{{ db_name }}",DB_USER="{{ db_user }}",DB_PASSWORD="{{ db_password }}",CHAOS_ENABLED="true"
+autostart=true
+autorestart=true
+startsecs=3
+stopsignal=TERM
+stopwaitsecs=15
+stdout_logfile={{ taskapi_log_dir }}/app.log
+stdout_logfile_maxbytes=10MB
+stdout_logfile_backups=3
+redirect_stderr=true

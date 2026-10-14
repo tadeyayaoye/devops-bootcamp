@@ -1,0 +1,6 @@
+---
+# Un handler ne s'exécute qu'UNE fois, en fin de play, et seulement si une tâche l'a notifié (changed)
+- name: Recharger sshd
+  ansible.builtin.service:
+    name: ssh
+    state: reloaded

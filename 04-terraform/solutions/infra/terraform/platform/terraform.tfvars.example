@@ -1,0 +1,12 @@
+# Copie en terraform.tfvars pour surcharger les défauts.
+# Épingle les versions des charts (lab 4.4) — trouve-les avec :
+#   helm search repo traefik/traefik --versions | head -3
+#   helm search repo argo/argo-cd --versions | head -3
+#   helm search repo metrics-server/metrics-server --versions | head -3
+enable_argocd = false
+
+chart_versions = {
+  # metrics_server = "<version>"
+  # traefik        = "<version>"
+  # argocd         = "<version>"
+}

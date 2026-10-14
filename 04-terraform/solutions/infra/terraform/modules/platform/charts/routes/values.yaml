@@ -1,0 +1,7 @@
+# routes:
+#   - { name: argocd, namespace: argocd, hostname: argocd.localhost, service: argocd-server, port: 80 }
+routes: []
+gateway:
+  name: main
+  namespace: traefik
+  sectionName: web

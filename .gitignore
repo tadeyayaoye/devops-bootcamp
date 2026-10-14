@@ -39,7 +39,9 @@ terraform.rc
 
 # Ansible
 *.retry
-infra/ansible/lab/authorized_keys
+05-ansible/lab/authorized_keys
+infra/ansible/collections/
+infra/ansible/generated/
 
 # SonarQube / scanners
 .scannerwork/

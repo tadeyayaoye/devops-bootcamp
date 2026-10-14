@@ -1,0 +1,36 @@
+---
+# Mise à jour progressive : un serveur à la fois, arrêt immédiat au premier échec.
+#   ansible-playbook playbooks/rolling-update.yml -e new_version=1.1.0
+- name: Déploiement progressif de taskapi
+  hosts: web
+  become: true
+  serial: 1                    # 1 hôte à la fois (peut être "50%" ou [1, 2, "100%"])
+  max_fail_percentage: 0       # le moindre échec stoppe le déploiement des hôtes suivants
+  vars:
+    app_version: "{{ new_version | default('1.1.0') }}"
+
+  pre_tasks:
+    - name: Sortir l'hôte du load balancer (simulé)
+      ansible.builtin.debug:
+        msg: "Retrait de {{ inventory_hostname }} du pool avant mise à jour"
+
+  roles:
+    - taskapi
+
+  post_tasks:
+    - name: Forcer l'exécution des handlers (redémarrage) avant de vérifier
+      ansible.builtin.meta: flush_handlers
+
+    - name: Attendre que la nouvelle version soit prête
+      ansible.builtin.uri:
+        url: http://127.0.0.1/version
+        return_content: true
+      register: version
+      retries: 10
+      delay: 3
+      until: version.status == 200 and version.json.version == app_version
+      changed_when: false
+
+    - name: Remettre l'hôte dans le load balancer (simulé)
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }} sert maintenant la version {{ version.json.version }}"

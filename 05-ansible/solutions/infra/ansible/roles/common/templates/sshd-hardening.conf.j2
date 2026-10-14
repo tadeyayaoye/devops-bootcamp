@@ -1,0 +1,9 @@
+# {{ ansible_managed }}
+PermitRootLogin no
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+X11Forwarding no
+MaxAuthTries 3
+LoginGraceTime 30
+AllowUsers ansible{% for u in admin_users %} {{ u.name }}{% endfor %}
+

@@ -1,0 +1,29 @@
+# {{ ansible_managed }}
+upstream taskapi {
+    server 127.0.0.1:{{ taskapi_port | default(8000) }};
+    keepalive 16;
+}
+
+server {
+    listen 80 default_server;
+    server_name _;
+
+    # Permet de voir quel serveur a répondu (utile pour les tests de répartition)
+    add_header X-Served-By {{ inventory_hostname }} always;
+
+    location = /nginx-health {
+        access_log off;
+        return 200 "ok\n";
+    }
+
+    location / {
+        proxy_pass http://taskapi;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 30s;
+    }
+}
