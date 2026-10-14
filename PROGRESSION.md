@@ -1,0 +1,27 @@
+# Progression
+
+Coche au fur et à mesure (`[x]`), commite ce fichier : ton historique Git devient ton journal de bord.
+
+Échelle d'auto-évaluation (avant → après) : 1 = flou, 2 = je reconnais, 3 = je sais faire avec la doc, 4 = je sais faire seul·e, 5 = je sais l'expliquer et debugger.
+
+| Module | Cours lu | Labs faits | Challenge | `make check` vert | Quiz | Niveau avant | Niveau après |
+|---|---|---|---|---|---|---|---|
+| 00 Setup, Linux, Git | [ ] | [ ] | [ ] | [ ] | [ ] | | |
+| 01 Docker | [ ] | [ ] | [ ] | [ ] | [ ] | | |
+| 02 Kubernetes bases | [ ] | [ ] | [ ] | [ ] | [ ] | | |
+| 03 Kubernetes avancé | [ ] | [ ] | [ ] | [ ] | [ ] | | |
+| 04 Terraform | [ ] | [ ] | [ ] | [ ] | [ ] | | |
+| 05 Ansible | [ ] | [ ] | [ ] | [ ] | [ ] | | |
+| 06 CI Jenkins | [ ] | [ ] | [ ] | [ ] | [ ] | | |
+| 07 Qualité, DevSecOps, GitHub Actions | [ ] | [ ] | [ ] | [ ] | [ ] | | |
+| 08 GitOps Argo CD | [ ] | [ ] | [ ] | [ ] | [ ] | | |
+| 09 Prometheus, Grafana | [ ] | [ ] | [ ] | [ ] | [ ] | | |
+| 10 Logs, traces, SLO | [ ] | [ ] | [ ] | [ ] | [ ] | | |
+| 11 Projet final | — | [ ] | [ ] | [ ] | — | | |
+| 12 Bilan | — | — | — | — | [ ] | | |
+
+## Notes / points encore flous
+
+<!-- Note ici ce qui reste flou : c'est ta liste de révision pour le 26. -->
+
+- 

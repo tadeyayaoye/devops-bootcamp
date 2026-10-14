@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+reports/
+*.db
+*.egg-info/
+
+# Secrets & config locale — ne JAMAIS commiter
+.env
+*.env
+!*.env.example
+secrets/
+.vault_pass
+*.pem
+*.key
+kubeconfig*
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+# Le lock file des providers, lui, SE COMMITE : .terraform.lock.hcl
+
+# Ansible
+*.retry
+infra/ansible/lab/authorized_keys
+
+# SonarQube / scanners
+.scannerwork/
+.sonar/
+sbom*.json
+
+# Éditeurs / OS
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+.DS_Store
+Thumbs.db

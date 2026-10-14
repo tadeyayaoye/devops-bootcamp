@@ -1,0 +1,30 @@
+[project]
+name = "taskapi"
+version = "0.1.0"
+description = "Application fil rouge du bootcamp DevOps"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.coverage.run]
+source = ["src/taskapi"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+
+[tool.coverage.xml]
+output = "coverage.xml"
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# E/F : erreurs de base, I : tri des imports, B : bugs probables, UP : syntaxe moderne
+select = ["E", "F", "I", "B", "UP"]

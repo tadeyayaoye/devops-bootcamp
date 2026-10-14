@@ -1,0 +1,18 @@
+# Tout ce qui n'est pas nécessaire à l'image : plus petit contexte = build plus rapide,
+# et surtout aucun secret ni artefact local qui fuiterait dans une couche.
+.venv/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+reports/
+*.db
+.env
+.secrets/
+tests/
+Dockerfile*
+.dockerignore
+README.md

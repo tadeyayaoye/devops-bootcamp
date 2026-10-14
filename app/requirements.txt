@@ -1,0 +1,15 @@
+# Dépendances d'exécution.
+# Fourchettes de versions volontairement larges pour que l'installation marche à date.
+# Au module 01, tu génèreras un fichier de verrouillage (requirements.lock) : en entreprise,
+# une image doit être reproductible, donc les versions exactes doivent être figées.
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.32,<1.0
+sqlalchemy>=2.0.36,<2.1
+psycopg[binary]>=3.2,<4
+pydantic-settings>=2.6,<3
+prometheus-client>=0.21,<1
+opentelemetry-api>=1.29,<2
+opentelemetry-sdk>=1.29,<2
+opentelemetry-exporter-otlp-proto-http>=1.29,<2
+opentelemetry-instrumentation-fastapi>=0.50b0
+opentelemetry-instrumentation-sqlalchemy>=0.50b0

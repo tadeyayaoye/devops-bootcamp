@@ -1,0 +1,16 @@
+# À copier dans C:\Users\<toi>\.wslconfig  (puis : wsl --shutdown)
+# Doc : https://learn.microsoft.com/windows/wsl/wsl-config
+[wsl2]
+# 16 Go physiques : 12 Go pour WSL, 4 Go pour Windows
+memory=12GB
+# Ryzen 5 5500 = 12 threads : on en garde 2 pour Windows
+processors=10
+swap=8GB
+# Les ports ouverts dans WSL sont accessibles via localhost côté Windows
+localhostForwarding=true
+
+[experimental]
+# Rend progressivement à Windows la mémoire libérée par Linux
+autoMemoryReclaim=gradual
+# Le disque virtuel se compacte quand il se vide (images Docker supprimées…)
+sparseVhd=true

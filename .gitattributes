@@ -1,0 +1,4 @@
+# Fins de ligne LF partout : un script bash en CRLF casse dans WSL ("/bin/bash^M: bad interpreter")
+* text=auto eol=lf
+*.png binary
+*.jpg binary
