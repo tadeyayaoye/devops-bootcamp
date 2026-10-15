@@ -39,7 +39,11 @@ def test_metrics_expose_les_series_red(client):
     # le label route contient le template, pas l'id
     assert 'route="/api/tasks/{task_id}"' in text
     assert "/api/tasks/12345" not in text
-    assert 'taskapi_build_info{version="9.9.9-test",env="test"} 1.0' in text
+    # l'ordre des labels dans l'exposition dépend de la version de prometheus_client : on ne s'y fie pas
+    build_info = next(line for line in text.splitlines() if line.startswith("taskapi_build_info{"))
+    assert 'version="9.9.9-test"' in build_info
+    assert 'env="test"' in build_info
+    assert build_info.endswith(" 1.0")
 
 
 def test_url_inconnue_regroupee_sous_un_seul_label(client):
