@@ -6,7 +6,7 @@ Coche au fur et à mesure (`[x]`), commite ce fichier : ton historique Git devie
 
 | Module | Cours lu | Labs faits | Challenge | `make check` vert | Quiz | Niveau avant | Niveau après |
 |---|---|---|---|---|---|---|---|
-| 00 Setup, Linux, Git | [ ] | [ ] | [ ] | [ ] | [ ] | | |
+| 00 Setup, Linux, Git | [ X] | [ ] | [ ] | [ ] | [ ] | | |
 | 01 Docker | [ ] | [ ] | [ ] | [ ] | [ ] | | |
 | 02 Kubernetes bases | [ ] | [ ] | [ ] | [ ] | [ ] | | |
 | 03 Kubernetes avancé | [ ] | [ ] | [ ] | [ ] | [ ] | | |
