@@ -27,5 +27,5 @@ class TaskOut(BaseModel):
 
 
 class ChaosConfig(BaseModel):
-    error_rate: float = Field(default=0.0, ge=0.0, le=1.0, description="proportion de réponses 500 sur /api/*")
+    error_rate: float = Field(default=0.0, ge=0.0, le=1.0, description="part de réponses 500 sur /api/*")
     latency_ms: int = Field(default=0, ge=0, le=10_000, description="latence ajoutée sur /api/*")
