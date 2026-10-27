@@ -50,6 +50,19 @@ flowchart LR
 | Sam 25/10 | [11-projet-final](11-projet-final/) | Tout reconstruire de zéro + 4 incidents simulés | 6 h |
 | Dim 26/10 | [12-bilan](12-bilan/) | Auto-évaluation, questions d'entretien, reconstitution à blanc | 4-5 h |
 
+### Parcours complémentaire « DevOps en milieu bancaire » (≈ 4 jours)
+
+Les outils que demandent les missions infra/DevOps en banque, à faire après le tronc commun (modules 05 et 06 requis).
+
+| Module | Thème | Durée |
+|---|---|---|
+| [13-contexte-bancaire](13-contexte-bancaire/) | Production bancaire : environnements, ITIL (RFC, CAB, changements), batch de nuit, DORA (le règlement), PCA/PRA, vocabulaire, livrables (DEX, consignes) | 3-4 h |
+| [14-ordonnancement](14-ordonnancement/) | Ordonnancement : concepts universels, **Control-M** en profondeur (architecture, objets, Jobs-as-Code JSON, `ctm`), pratique sur une chaîne d'arrêté comptable avec **Airflow** (gratuit) | 6 h |
+| [15-zabbix](15-zabbix/) | **Zabbix 7.0 LTS** : agents déployés par Ansible, auto-enregistrement, templates, HTTP/Prometheus, web scenarios, triggers, webhooks, maintenances, API | 5-6 h |
+| [16-xl-release](16-xl-release/) | **XL Release** (Digital.ai Release) : orchestration des MEP, gates, séparation des tâches, gel, intégration Jenkins, Release as code, API | 5-6 h |
+
+> ⚖️ Control-M et XL Release sont des logiciels **commerciaux** : Control-M se pratique avec Airflow (concepts identiques) + écriture de JSON Control-M, et en vrai si tu obtiens un **Control-M Workbench** ; XL Release se pratique avec sa **licence d'essai Docker de 7 jours**. Zabbix et Airflow sont entièrement gratuits.
+
 Coche ta progression dans [PROGRESSION.md](PROGRESSION.md).
 
 ## Comment est organisé chaque module
@@ -110,6 +123,9 @@ WSL est plafonné à **12 Go** (fichier `.wslconfig`, module 00). Tu ne fais pas
 | Loki + Tempo + Alloy | ~1 Go | 10 → 11 |
 | Jenkins | ~1,5 Go | 06 → 08, 11 |
 | SonarQube + Postgres | ~3 Go | 07, 11 (à la demande) |
+| Airflow (7 conteneurs) | ~4 Go | 14 (cluster et CI arrêtés) |
+| Zabbix + labo Ansible | ~2 Go | 15 |
+| XL Release | ~3-4 Go | 16 (avec Jenkins seul) |
 
 Commandes utiles : `make status`, `make ci-down`, `make sonar-down`, `docker stats`.
 
@@ -124,6 +140,9 @@ Commandes utiles : `make status`, `make ci-down`, `make sonar-down`, `docker sta
 | Alertmanager | http://alertmanager.localhost |
 | Jenkins | http://localhost:8080 |
 | SonarQube | http://localhost:9000 |
+| Airflow (module 14) | http://localhost:8090 |
+| Zabbix (module 15) | http://localhost:8091 |
+| XL Release (module 16) | http://localhost:5516 |
 
 Les noms `*.localhost` pointent automatiquement vers ta machine dans Chrome/Edge/Firefox et dans `curl` : aucun fichier `hosts` à modifier.
 

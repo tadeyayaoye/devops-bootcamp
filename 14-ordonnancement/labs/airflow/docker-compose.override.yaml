@@ -1,0 +1,18 @@
+# Surcouche du docker-compose.yaml OFFICIEL d'Airflow (fusionnée automatiquement par Docker Compose).
+# À copier dans batch/airflow/ à côté de docker-compose.yaml (Lab 14.1).
+services:
+  airflow-apiserver:
+    # 8080 est déjà pris par Jenkins : l'UI d'Airflow sera sur http://localhost:8090
+    ports: !override
+      - "127.0.0.1:8090:8080"
+
+  airflow-worker:
+    # Les tâches s'exécutent sur le worker : il a besoin des scripts batch et du dossier de données
+    volumes:
+      - ./data:/opt/airflow/data
+      - ../../14-ordonnancement/batch/scripts:/opt/batch/scripts:ro
+    environment:
+      BATCH_DATA: /opt/airflow/data
+      # Connexion "système de fichiers" utilisée par le FileSensor, déclarée par variable d'environnement
+      # (AIRFLOW_CONN_<ID>) : versionnable, et en entreprise alimentée par un gestionnaire de secrets
+      AIRFLOW_CONN_FS_BATCH: '{"conn_type": "fs", "extra": {"path": "/"}}'

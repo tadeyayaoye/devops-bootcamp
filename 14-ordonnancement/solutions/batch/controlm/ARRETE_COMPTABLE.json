@@ -1,0 +1,111 @@
+{
+  "Defaults": {
+    "ControlmServer": "workbench",
+    "Host": "workbench",
+    "RunAs": "workbench",
+    "Application": "BANQUE",
+    "SubApplication": "ARRETE",
+    "Variables": [
+      { "BATCH_DATA": "/home/workbench/batch/data" },
+      { "SCRIPTS": "/home/workbench/batch/scripts" }
+    ],
+    "Job": {
+      "IfFailure": {
+        "Type": "If",
+        "CompletionStatus": "NOTOK",
+        "AlerteProd": {
+          "Type": "Mail",
+          "To": "prod-batch@banque.example",
+          "Subject": "BATCH KO : %%JOBNAME (ODATE %%ODATE)",
+          "Message": "Le job %%JOBNAME du folder ARRETE_COMPTABLE est en échec. Consulter les consignes de pilotage."
+        }
+      }
+    }
+  },
+
+  "ARRETE_COMPTABLE": {
+    "Type": "Folder",
+    "Description": "Arrêté comptable de fin de journée, jours ouvrés TARGET",
+    "OrderMethod": "Manual",
+    "When": {
+      "WeekDays": ["MON", "TUE", "WED", "THU", "FRI"],
+      "FromTime": "2200"
+    },
+
+    "ATTENDRE_FICHIER": {
+      "Type": "Job:FileWatcher:Create",
+      "Description": "Attend le fichier du partenaire (2 h max)",
+      "Path": "%%BATCH_DATA/in/transactions_%%$ODATE.csv",
+      "SearchInterval": "30",
+      "TimeLimit": "120"
+    },
+
+    "CONTROLER_FICHIER": {
+      "Type": "Job:Command",
+      "Description": "Totaux de contrôle (pas de relance automatique : un fichier faux ne se corrige pas seul)",
+      "Command": "BATCH_DATA=%%BATCH_DATA %%SCRIPTS/controler_fichier.sh %%$ODATE"
+    },
+
+    "CHARGER_TRANSACTIONS": {
+      "Type": "Job:Command",
+      "Description": "Intégration au grand livre (idempotent)",
+      "Command": "BATCH_DATA=%%BATCH_DATA %%SCRIPTS/charger_transactions.sh %%$ODATE",
+      "Rerun": { "Every": "2", "Units": "Minutes", "Times": "2" },
+      "BaseComptable": { "Type": "Resource:Semaphore", "Quantity": "1" }
+    },
+
+    "CALCULER_SOLDES": {
+      "Type": "Job:Command",
+      "Command": "BATCH_DATA=%%BATCH_DATA %%SCRIPTS/calculer_soldes.sh %%$ODATE",
+      "BaseComptable": { "Type": "Resource:Semaphore", "Quantity": "1" }
+    },
+
+    "GENERER_REPORTING": {
+      "Type": "Job:Command",
+      "Command": "BATCH_DATA=%%BATCH_DATA %%SCRIPTS/generer_reporting.sh %%$ODATE"
+    },
+
+    "TRANSFERER_PARTENAIRE": {
+      "Type": "Job:Command",
+      "Description": "En production : un job de type Control-M MFT ou CFT plutôt qu'une copie",
+      "Command": "BATCH_DATA=%%BATCH_DATA %%SCRIPTS/transferer_partenaire.sh %%$ODATE"
+    },
+
+    "ARCHIVER": {
+      "Type": "Job:Command",
+      "Command": "BATCH_DATA=%%BATCH_DATA %%SCRIPTS/archiver.sh %%$ODATE 30",
+      "PosterCondition": {
+        "Type": "AddEvents",
+        "Events": [ { "Event": "ARRETE_COMPTABLE-OK" } ]
+      }
+    },
+
+    "SEQUENCE": {
+      "Type": "Flow",
+      "Sequence": ["ATTENDRE_FICHIER", "CONTROLER_FICHIER", "CHARGER_TRANSACTIONS", "CALCULER_SOLDES", "GENERER_REPORTING", "ARCHIVER"]
+    },
+    "BRANCHE_TRANSFERT": {
+      "Type": "Flow",
+      "Sequence": ["CALCULER_SOLDES", "TRANSFERER_PARTENAIRE", "ARCHIVER"]
+    }
+  },
+
+  "REPORTING_REGLEMENTAIRE": {
+    "Type": "Folder",
+    "Description": "Consolidation réglementaire, déclenchée par la fin de l'arrêté",
+    "OrderMethod": "Manual",
+
+    "CONSOLIDER_REPORTING": {
+      "Type": "Job:Command",
+      "Command": "BATCH_DATA=%%BATCH_DATA %%SCRIPTS/consolider_reporting.sh",
+      "AttendreArrete": {
+        "Type": "WaitForEvents",
+        "Events": [ { "Event": "ARRETE_COMPTABLE-OK" } ]
+      },
+      "NettoyerCondition": {
+        "Type": "DeleteEvents",
+        "Events": [ { "Event": "ARRETE_COMPTABLE-OK" } ]
+      }
+    }
+  }
+}

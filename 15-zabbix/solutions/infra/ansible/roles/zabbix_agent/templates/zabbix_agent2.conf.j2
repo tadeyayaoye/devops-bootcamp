@@ -1,0 +1,17 @@
+# {{ ansible_managed }}
+PidFile=/run/zabbix/zabbix_agent2.pid
+LogType=console
+LogFile=/var/log/zabbix/zabbix_agent2.log
+
+# Mode passif : seul le serveur Zabbix a le droit d'interroger l'agent
+Server={{ zabbix_server }}
+# Mode actif : l'agent envoie ses valeurs au serveur et s'auto-enregistre
+ServerActive={{ zabbix_server }}
+
+# Doit correspondre EXACTEMENT au nom de l'hôte dans Zabbix
+Hostname={{ inventory_hostname }}
+HostMetadata={{ zabbix_host_metadata }}
+
+ControlSocket=/run/zabbix/agent.sock
+Include=/etc/zabbix/zabbix_agent2.d/*.conf
+Include=/etc/zabbix/zabbix_agent2.d/plugins.d/*.conf

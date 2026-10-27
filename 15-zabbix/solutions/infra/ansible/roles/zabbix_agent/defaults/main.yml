@@ -1,0 +1,15 @@
+---
+zabbix_version: "7.0"
+zabbix_release_deb: "https://repo.zabbix.com/zabbix/{{ zabbix_version }}/ubuntu/pool/main/z/zabbix-release/zabbix-release_latest_{{ zabbix_version }}+ubuntu24.04_all.deb"
+# IP du serveur Zabbix sur le réseau du labo (15-zabbix/lab/compose.yaml)
+zabbix_server: 172.30.0.20
+# Métadonnées envoyées à l'auto-enregistrement : l'action Zabbix s'en sert pour classer l'hôte
+zabbix_host_metadata: "bootcamp linux {{ group_names | join(' ') }}"
+# Contrôles applicatifs personnalisés, déployés uniquement sur les serveurs du groupe "web"
+# (exécutés par l'utilisateur zabbix : pas de commande nécessitant des privilèges)
+zabbix_web_user_parameters:
+  - key: taskapi.readyz
+    command: "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1/readyz"
+  - key: taskapi.process.count
+    # [u] : astuce pour que le shell qui exécute la commande ne se compte pas lui-même
+    command: "pgrep -fc '[u]vicorn taskapi' || true"

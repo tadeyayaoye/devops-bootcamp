@@ -1,0 +1,7 @@
+# {{ ansible_managed }}
+# Contrôles personnalisés : la clé est utilisable comme item "Zabbix agent" dans l'UI.
+{% if 'web' in group_names %}
+{% for p in zabbix_web_user_parameters %}
+UserParameter={{ p.key }},{{ p.command }}
+{% endfor %}
+{% endif %}

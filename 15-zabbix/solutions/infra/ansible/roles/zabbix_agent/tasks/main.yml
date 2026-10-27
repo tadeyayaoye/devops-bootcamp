@@ -1,0 +1,60 @@
+---
+# Ubuntu 24.04 ne fournit plus l'agent Zabbix : on utilise le dépôt officiel Zabbix (version LTS).
+- name: Installer le paquet de configuration du dépôt Zabbix
+  ansible.builtin.apt:
+    deb: "{{ zabbix_release_deb }}"
+    state: present
+
+- name: Installer l'agent 2 (et supervisor, qui le fera tourner)
+  ansible.builtin.apt:
+    name: [zabbix-agent2, supervisor]
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Dossier d'exécution de l'agent
+  ansible.builtin.file:
+    path: /run/zabbix
+    state: directory
+    owner: zabbix
+    group: zabbix
+    mode: "0755"
+
+- name: Configuration de l'agent
+  ansible.builtin.template:
+    src: zabbix_agent2.conf.j2
+    dest: /etc/zabbix/zabbix_agent2.conf
+    owner: root
+    group: zabbix
+    mode: "0640"
+  notify: Redémarrer l'agent Zabbix
+
+- name: Contrôles applicatifs (UserParameter)
+  ansible.builtin.template:
+    src: userparameters.conf.j2
+    dest: /etc/zabbix/zabbix_agent2.d/bootcamp.conf
+    owner: root
+    group: zabbix
+    mode: "0640"
+  notify: Redémarrer l'agent Zabbix
+
+# Les serveurs du labo n'ont pas systemd : l'agent tourne sous supervisor (comme taskapi au module 05)
+- name: Programme supervisor de l'agent
+  ansible.builtin.copy:
+    dest: /etc/supervisor/conf.d/zabbix-agent2.conf
+    mode: "0644"
+    content: |
+      ; {{ ansible_managed }}
+      [program:zabbix-agent2]
+      command=/usr/sbin/zabbix_agent2 -c /etc/zabbix/zabbix_agent2.conf
+      user=zabbix
+      autostart=true
+      autorestart=true
+      stdout_logfile=/var/log/zabbix/agent2.log
+      redirect_stderr=true
+  notify: Redémarrer l'agent Zabbix
+
+- name: Superviseur démarré
+  ansible.builtin.service:
+    name: supervisor
+    state: started

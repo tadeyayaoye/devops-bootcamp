@@ -1,0 +1,14 @@
+---
+# Déploie l'agent Zabbix 2 sur tous les serveurs du labo.
+#   cd infra/ansible && ansible-playbook playbooks/zabbix-agent.yml
+- name: Agent Zabbix sur les serveurs du labo
+  hosts: lab
+  become: true
+  roles:
+    - zabbix_agent
+  post_tasks:
+    - name: L'agent répond localement
+      ansible.builtin.command: zabbix_agent2 -c /etc/zabbix/zabbix_agent2.conf -t agent.ping
+      register: ping
+      changed_when: false
+      failed_when: "'[s|1]' not in ping.stdout"

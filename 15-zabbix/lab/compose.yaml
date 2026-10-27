@@ -1,0 +1,81 @@
+# Zabbix 7.0 LTS en local : base PostgreSQL, serveur, frontend web, un agent 2, un récepteur d'alertes.
+# Le serveur est AUSSI branché sur le réseau du labo Ansible (module 05) pour superviser web1, web2, db1.
+#   docker compose -f 05-ansible/lab/compose.yaml up -d          # d'abord le labo Ansible
+#   docker compose -f 15-zabbix/lab/compose.yaml up -d
+#   → http://localhost:8091   (Admin / zabbix, à changer)
+name: zabbix
+
+x-zbx-db: &zbx-db
+  DB_SERVER_HOST: zbx-db
+  POSTGRES_USER: zabbix
+  POSTGRES_PASSWORD: zabbix          # labo uniquement : en vrai, un secret (fichier, Vault…)
+  POSTGRES_DB: zabbix
+
+services:
+  zbx-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: zabbix
+      POSTGRES_PASSWORD: zabbix
+      POSTGRES_DB: zabbix
+    volumes:
+      - zbx-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zabbix"]
+      interval: 5s
+      retries: 20
+    restart: unless-stopped
+
+  zabbix-server:
+    image: zabbix/zabbix-server-pgsql:alpine-7.0-latest
+    environment:
+      <<: *zbx-db
+      ZBX_CACHESIZE: 64M
+    depends_on:
+      zbx-db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:10051:10051"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"     # pour joindre les services publiés sur l'hôte (kind, Jenkins…)
+    networks:
+      default: {}
+      lab:
+        ipv4_address: 172.30.0.20               # IP fixe : c'est elle que les agents autorisent (Server=)
+    restart: unless-stopped
+
+  zabbix-web:
+    image: zabbix/zabbix-web-nginx-pgsql:alpine-7.0-latest
+    environment:
+      <<: *zbx-db
+      ZBX_SERVER_HOST: zabbix-server
+      PHP_TZ: Europe/Paris
+    depends_on: [zabbix-server]
+    ports:
+      - "127.0.0.1:8091:8080"
+    restart: unless-stopped
+
+  # Agent qui supervise… le conteneur du serveur (l'hôte « Zabbix server » créé par défaut)
+  zabbix-agent:
+    image: zabbix/zabbix-agent2:alpine-7.0-latest
+    environment:
+      ZBX_HOSTNAME: "Zabbix server"
+      ZBX_SERVER_HOST: zabbix-server
+      ZBX_SERVER_ACTIVE: zabbix-server
+    restart: unless-stopped
+
+  # Récepteur de notifications (remplace Teams/Slack/ServiceNow) : affiche ce que Zabbix envoie
+  alert-sink:
+    image: python:3.12-alpine
+    command: ["python", "-u", "/app/sink.py"]
+    volumes:
+      - ./sink.py:/app/sink.py:ro
+    restart: unless-stopped
+
+volumes:
+  zbx-db:
+
+networks:
+  lab:
+    name: ansible-lab_lab        # réseau créé par 05-ansible/lab/compose.yaml
+    external: true

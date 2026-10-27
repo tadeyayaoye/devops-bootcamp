@@ -108,6 +108,27 @@ urls: ## Affiche les URLs utiles
 	@echo "Alertmanager  : http://alertmanager.localhost"
 	@echo "Jenkins       : http://localhost:8080"
 	@echo "SonarQube     : http://localhost:9000"
+	@echo "Airflow       : http://localhost:8090     (airflow / airflow)"
+	@echo "Zabbix        : http://localhost:8091     (Admin / à changer)"
+	@echo "XL Release    : http://localhost:5516     (admin / ton mot de passe)"
+
+## —— Parcours banque (modules 14-16) ——————————————————————————————
+airflow-up: ## Démarre Airflow (module 14, batch/airflow doit être initialisé)
+	cd batch/airflow && docker compose up -d
+
+airflow-down: ## Arrête Airflow
+	cd batch/airflow && docker compose down
+
+zabbix-up: ## Démarre le labo Ansible puis Zabbix (module 15)
+	docker compose -f 05-ansible/lab/compose.yaml up -d
+	docker compose -f 15-zabbix/lab/compose.yaml up -d
+
+zabbix-down: ## Arrête Zabbix (garde ses données)
+	docker compose -f 15-zabbix/lab/compose.yaml down
+
+xlr-down: ## Arrête XL Release (le volume xlr-data est conservé)
+	docker rm -f xl-release
 
 .PHONY: help tools status app-venv app-test app-run load cluster-up cluster-down tf-cluster tf-platform \
-	tf-destroy gitops-bootstrap argocd-password sealed-key-backup sealed-key-restore ci-up sonar-up sonar-down ci-down up down urls
+	tf-destroy gitops-bootstrap argocd-password sealed-key-backup sealed-key-restore ci-up sonar-up sonar-down ci-down up down urls \
+	airflow-up airflow-down zabbix-up zabbix-down xlr-down

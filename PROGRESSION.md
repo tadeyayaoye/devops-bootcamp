@@ -19,6 +19,11 @@ Coche au fur et à mesure (`[x]`), commite ce fichier : ton historique Git devie
 | 10 Logs, traces, SLO | [ ] | [ ] | [ ] | [ ] | [ ] | | |
 | 11 Projet final | — | [ ] | [ ] | [ ] | — | | |
 | 12 Bilan | — | — | — | — | [ ] | | |
+| **Parcours banque** | | | | | | | |
+| 13 Contexte bancaire (ITIL, batch, DORA) | [ ] | [ ] | — | — | [ ] | | |
+| 14 Ordonnancement (Control-M, Airflow) | [ ] | [ ] | [ ] | [ ] | [ ] | | |
+| 15 Zabbix | [ ] | [ ] | [ ] | [ ] | [ ] | | |
+| 16 XL Release | [ ] | [ ] | [ ] | [ ] | [ ] | | |
 
 ## Notes / points encore flous
 

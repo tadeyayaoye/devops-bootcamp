@@ -1,0 +1,11 @@
+---
+- name: Relire la configuration supervisor (agent)
+  ansible.builtin.command: supervisorctl update
+  changed_when: true
+  listen: Redémarrer l'agent Zabbix
+
+- name: Redémarrer le programme zabbix-agent2
+  community.general.supervisorctl:
+    name: zabbix-agent2
+    state: restarted
+  listen: Redémarrer l'agent Zabbix
