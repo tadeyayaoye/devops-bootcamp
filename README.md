@@ -50,6 +50,14 @@ flowchart LR
 | Sam 25/10 | [11-projet-final](11-projet-final/) | Tout reconstruire de zéro + 4 incidents simulés | 6 h |
 | Dim 26/10 | [12-bilan](12-bilan/) | Auto-évaluation, questions d'entretien, reconstitution à blanc | 4-5 h |
 
+### Module indépendant : les commandes de base
+
+| Module | Thème | Durée |
+|---|---|---|
+| [17-commandes-de-base](17-commandes-de-base/) | Les réflexes de la ligne de commande, **chaque commande en Linux (bash) ET en PowerShell** : fichiers, `head`/`tail`, droits (`chmod` / `icacls`), processus (`kill`, `kill -9` / `Stop-Process -Force`), services, disque, réseau, `grep` / `Select-String`, redirections. 50 exercices dans un bac à sable | 3-4 h |
+
+À faire quand tu veux, idéalement **avant le module 01** si les commandes ne sont plus fluides.
+
 ### Parcours complémentaire « DevOps en milieu bancaire » (≈ 4 jours)
 
 Les outils que demandent les missions infra/DevOps en banque, à faire après le tronc commun (modules 05 et 06 requis).

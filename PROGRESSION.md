@@ -19,6 +19,7 @@ Coche au fur et à mesure (`[x]`), commite ce fichier : ton historique Git devie
 | 10 Logs, traces, SLO | [ ] | [ ] | [ ] | [ ] | [ ] | | |
 | 11 Projet final | — | [ ] | [ ] | [ ] | — | | |
 | 12 Bilan | — | — | — | — | [ ] | | |
+| 17 Commandes de base (Linux + PowerShell) | [ ] | [ ] | [ ] | — | [ ] | | |
 | **Parcours banque** | | | | | | | |
 | 13 Contexte bancaire (ITIL, batch, DORA) | [ ] | [ ] | — | — | [ ] | | |
 | 14 Ordonnancement (Control-M, Airflow) | [ ] | [ ] | [ ] | [ ] | [ ] | | |
