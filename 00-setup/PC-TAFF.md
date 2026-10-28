@@ -54,6 +54,8 @@ CORP_CA_PATTERN=paloalto.aubay.com ./scripts/bootstrap-wsl.sh
 
 Le certificat est rangé dans `~/.bootcamp/ca/` : les relances suivantes le réinstallent même sans la variable.
 
+> Si tu oublies la variable, le script s'arrête juste après les paquets apt avec « Un proxy d'entreprise intercepte le HTTPS… » : relance simplement avec `CORP_CA_PATTERN=…`.
+
 ### 4. Le profil « taff » dans `~/.bashrc`
 
 Ajoute à la fin de `~/.bashrc` **sur le PC du taff uniquement** :

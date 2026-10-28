@@ -70,6 +70,14 @@ if compgen -G "$CA_DIR/*.crt" >/dev/null; then
 else
   ok "aucun certificat d'entreprise (normal sur un PC perso)"
 fi
+# Contrôle avant d'aller plus loin : sans le bon certificat, gh/kubectl/helm/terraform échoueraient
+# plus bas avec un message moins clair. curl renvoie 60 quand le certificat n'est pas reconnu.
+rc=0; curl -fsS -o /dev/null -m 20 https://raw.githubusercontent.com/helm/helm/main/README.md || rc=$?
+if [[ $rc -eq 60 ]]; then
+  echo "    ✘ Un proxy d'entreprise intercepte le HTTPS et Ubuntu ne connaît pas son certificat."
+  echo "      Relance avec :  CORP_CA_PATTERN=paloalto.aubay.com ./scripts/bootstrap-wsl.sh   (cf. 00-setup/PC-TAFF.md)"
+  exit 1
+fi
 
 # -----------------------------------------------------------------------------
 log "Réglages noyau (sysctl) pour kind multi-nœuds et SonarQube"
