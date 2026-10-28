@@ -1,0 +1,15 @@
+# Variante PC du taff (HP ProBook, 8 Go physiques dont ~7,3 utilisables) — cf. PC-TAFF.md
+# À copier dans C:\Users\<toi>\.wslconfig  (puis : wsl --shutdown)
+[wsl2]
+# Windows d'entreprise (Teams, Defender, Intune…) a besoin de ~2,5 Go : 5 Go pour WSL.
+# Si Windows rame, descends à 4GB.
+memory=5GB
+# 12 threads : on en garde 4 pour Windows
+processors=8
+# Le swap compense le manque de RAM (plus lent, mais évite les OOM)
+swap=8GB
+localhostForwarding=true
+
+[experimental]
+autoMemoryReclaim=gradual
+sparseVhd=true

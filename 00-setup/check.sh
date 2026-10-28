@@ -4,7 +4,9 @@ source "$(git rev-parse --show-toplevel)/scripts/lib.sh"
 title "Module 00 — Poste de travail"
 check "Le repo est dans le système de fichiers Linux (pas /mnt/c)" bash -c '[[ "$(git rev-parse --show-toplevel)" != /mnt/* ]]'
 hint "git clone dans ~ (cf. Lab 0.3)"
-check "WSL dispose d'au moins 10 Go de RAM" bash -c '[[ $(free -g | awk "/Mem:/ {print \$2}") -ge 10 ]]'
+# PC du taff (8 Go physiques) : export MIN_WSL_RAM_GB=4 (cf. 00-setup/PC-TAFF.md)
+export MIN_WSL_RAM_GB="${MIN_WSL_RAM_GB:-10}"
+check "WSL dispose d'au moins ${MIN_WSL_RAM_GB} Go de RAM" bash -c '[[ $(free -g | awk "/Mem:/ {print \$2}") -ge $MIN_WSL_RAM_GB ]]'
 hint ".wslconfig absent ou non pris en compte → wsl --shutdown (Lab 0.2)"
 check "systemd est actif" bash -c 'systemctl is-system-running | grep -qE "running|degraded"'
 check "vm.max_map_count >= 524288 (SonarQube)" bash -c '[[ $(sysctl -n vm.max_map_count) -ge 524288 ]]'

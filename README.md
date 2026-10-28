@@ -137,6 +137,8 @@ WSL est plafonné à **12 Go** (fichier `.wslconfig`, module 00). Tu ne fais pas
 
 Commandes utiles : `make status`, `make ci-down`, `make sonar-down`, `docker stats`.
 
+Sur le PC du taff (8 Go, proxy HTTPS d'entreprise) : voir [00-setup/PC-TAFF.md](00-setup/PC-TAFF.md).
+
 ## URLs locales (une fois tout déployé)
 
 | Service | URL |

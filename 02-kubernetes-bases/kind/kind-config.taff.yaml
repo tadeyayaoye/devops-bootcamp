@@ -1,0 +1,22 @@
+# Variante PC du taff (8 Go de RAM, proxy HTTPS d'entreprise) — cf. 00-setup/PC-TAFF.md
+#   make cluster-up KIND_CONFIG=02-kubernetes-bases/kind/kind-config.taff.yaml
+# Différences avec kind-config.yaml :
+#   - un seul nœud (pas de workers) : ~1 Go économisé ; les pods tournent sur le control-plane
+#   - les certificats d'Ubuntu (dont celui du proxy) sont montés dans le nœud, sinon containerd
+#     refuse de tirer les images de registry.k8s.io ("x509: certificate signed by unknown authority")
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: bootcamp
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      - containerPort: 30080
+        hostPort: 80
+        protocol: TCP
+      - containerPort: 30443
+        hostPort: 443
+        protocol: TCP
+    extraMounts:
+      - hostPath: /etc/ssl/certs/ca-certificates.crt
+        containerPath: /etc/ssl/certs/ca-certificates.crt
+        readOnly: true

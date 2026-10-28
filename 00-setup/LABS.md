@@ -42,6 +42,8 @@ puis `wsl --shutdown` dans PowerShell et rouvre Ubuntu.
 
 Ton PC a 16 Go de RAM : on donne 12 Go max à WSL pour que Windows reste utilisable.
 
+> 💼 Sur le **PC du taff** (8 Go, proxy d'entreprise), suis plutôt [PC-TAFF.md](PC-TAFF.md).
+
 Copie le fichier [wslconfig.example](wslconfig.example) vers `C:\Users\<toi>\.wslconfig` (note le point au début, pas d'extension). Depuis PowerShell :
 
 ```powershell

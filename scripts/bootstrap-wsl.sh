@@ -23,7 +23,9 @@ TRIVY_VERSION="${TRIVY_VERSION:-0.69.3}"
 
 log()  { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
 ok()   { printf '    \033[32m✔ %s\033[0m\n' "$*"; }
-have() { command -v "$1" >/dev/null 2>&1; }
+# Ignore les exécutables Windows visibles via le PATH (/mnt/c/...) : sinon le « docker » de
+# Docker Desktop fait croire que Docker Engine est déjà installé dans Ubuntu.
+have() { local p; p=$(command -v "$1" 2>/dev/null) && [[ $p != /mnt/* ]]; }
 gh_latest() { curl -fsSL "https://api.github.com/repos/$1/releases/latest" | jq -r .tag_name; }
 
 if [[ $EUID -eq 0 ]]; then
@@ -40,6 +42,34 @@ sudo apt-get install -y --no-install-recommends \
   python3 python3-venv python3-pip pipx \
   openssh-client sshpass dnsutils iproute2 net-tools postgresql-client
 ok "paquets de base"
+
+# -----------------------------------------------------------------------------
+log "Certificats d'entreprise (proxy HTTPS)"
+# Sur un PC d'entreprise, le pare-feu (ex. Palo Alto) peut ré-signer les connexions HTTPS avec
+# sa propre autorité : curl, apt et docker refusent alors ("self-signed certificate in
+# certificate chain"). Windows fait confiance à cette autorité, Ubuntu non : on la lui copie.
+#   CORP_CA_PATTERN=paloalto.aubay.com ./scripts/bootstrap-wsl.sh   (cf. 00-setup/PC-TAFF.md)
+# Tu peux aussi déposer toi-même des certificats PEM (*.crt) dans ~/.bootcamp/ca/.
+CA_DIR="$HOME/.bootcamp/ca"
+if [[ -n "${CORP_CA_PATTERN:-}" ]]; then
+  mkdir -p "$CA_DIR"
+  rm -f "$CA_DIR"/corp-ca-*.crt
+  powershell.exe -NoProfile -Command "Get-ChildItem Cert:\\LocalMachine\\Root | Where-Object Subject -match '${CORP_CA_PATTERN}' | ForEach-Object { '-----BEGIN CERTIFICATE-----'; [Convert]::ToBase64String(\$_.RawData, 'InsertLineBreaks'); '-----END CERTIFICATE-----' }" \
+    | tr -d '\r' | awk -v d="$CA_DIR" '/BEGIN CERT/ {n++; f = sprintf("%s/corp-ca-%d.crt", d, n)} f {print > f}'
+  compgen -G "$CA_DIR/corp-ca-*.crt" >/dev/null || { echo "Aucun certificat Windows ne correspond à '$CORP_CA_PATTERN'."; exit 1; }
+fi
+if compgen -G "$CA_DIR/*.crt" >/dev/null; then
+  sudo install -d /usr/local/share/ca-certificates/bootcamp
+  sudo install -m 0644 "$CA_DIR"/*.crt /usr/local/share/ca-certificates/bootcamp/
+  sudo update-ca-certificates >/dev/null
+  # pip (donc pipx/ansible) a son propre magasin de certificats : on lui donne celui du système
+  export PIP_CERT=/etc/ssl/certs/ca-certificates.crt REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+  # dockerd ne relit les certificats qu'au démarrage
+  systemctl is-active --quiet docker 2>/dev/null && sudo systemctl restart docker
+  ok "certificats ajoutés : $(ls "$CA_DIR"/*.crt | xargs -n1 basename | tr '\n' ' ')"
+else
+  ok "aucun certificat d'entreprise (normal sur un PC perso)"
+fi
 
 # -----------------------------------------------------------------------------
 log "Réglages noyau (sysctl) pour kind multi-nœuds et SonarQube"
