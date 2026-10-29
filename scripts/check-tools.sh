@@ -4,8 +4,9 @@ set -uo pipefail
 
 ok=0; ko=0
 row() {
-  local name="$1" cmd="$2"
-  if command -v "$name" >/dev/null 2>&1; then
+  local name="$1" cmd="$2" p
+  # un binaire sous /mnt/c (ex. le docker de Docker Desktop) n'est pas un outil installé dans Ubuntu
+  if p=$(command -v "$name" 2>/dev/null) && [[ $p != /mnt/* ]]; then
     printf '  \033[32m✔\033[0m %-14s %s\n' "$name" "$(eval "$cmd" 2>/dev/null | head -1)"
     ok=$((ok + 1))
   else
@@ -41,7 +42,7 @@ else
   echo "  Docker daemon : NON joignable ✘ (service démarré ? groupe docker ? → rouvre ton terminal)"
   ko=$((ko + 1))
 fi
-echo "  Mémoire WSL   : $(free -h | awk '/Mem:/ {print $2}') (attendu ≈ 12 Gi, cf .wslconfig)"
+echo "  Mémoire WSL   : $(free -h | awk '/Mem:/ {print $2}') (attendu ≈ 12 Gi sur le PC perso, ≈ 5 Gi sur le PC du taff, cf .wslconfig)"
 echo "  Répertoire    : $(pwd) $( [[ $(pwd) == /mnt/* ]] && echo '⚠ tu es sur le disque Windows : travaille dans ~ !')"
 echo
 [[ $ko -eq 0 ]] && echo "✅ Tout est prêt ($ok outils)." || { echo "❌ $ko problème(s). Relance ./scripts/bootstrap-wsl.sh"; exit 1; }

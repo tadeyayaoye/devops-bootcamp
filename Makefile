@@ -3,6 +3,8 @@
 
 SHELL       := /usr/bin/env bash
 CLUSTER     ?= bootcamp
+# PC du taff : KIND_CONFIG=02-kubernetes-bases/kind/kind-config.taff.yaml (cf. 00-setup/PC-TAFF.md)
+KIND_CONFIG ?= 02-kubernetes-bases/kind/kind-config.yaml
 GITOPS_DIR  ?= $(abspath ../devops-bootcamp-gitops)
 TF_DIR      := infra/terraform
 CI_COMPOSE  := docker compose -f ci/compose.yaml
@@ -45,7 +47,7 @@ load: ## Génère du trafic : make load URL=http://taskapi-dev.localhost
 
 ## —— Cluster (avant Terraform : modules 02-03) ——————————————————
 cluster-up: ## Crée le cluster kind « à la main » (modules 02-03)
-	kind get clusters | grep -qx $(CLUSTER) || kind create cluster --config 02-kubernetes-bases/kind/kind-config.yaml
+	kind get clusters | grep -qx $(CLUSTER) || kind create cluster --config $(KIND_CONFIG)
 	kubectl cluster-info --context kind-$(CLUSTER)
 
 cluster-down: ## Supprime le cluster kind
